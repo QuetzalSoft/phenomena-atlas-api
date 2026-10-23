@@ -8,7 +8,8 @@ database access.
 This repository is one component of a larger product. The context that explains how it
 fits together lives in the system repository, `QuetzalSoft/phenomena-atlas`:
 
-- `contracts/openapi.yaml` - the contract this API must implement
+- `contracts/main.tsp` - the contract this API must implement (compiled to
+  `contracts/generated/openapi.yaml`, which is the document to read)
 - `docs/domain.md` - the shared vocabulary
 - `docs/release.md` - how a change crossing components is shipped
 - `docs/architecture.md` - why things are split this way
@@ -26,8 +27,10 @@ inherited from the parent directory.
 
 ## The contract comes first
 
-This API does not define its own interface. `contracts/openapi.yaml` in the system
-repository does, and it is written before the implementation.
+This API does not define its own interface. `contracts/main.tsp` in the system
+repository does, and it is written before the implementation. It is consumed here as the
+pinned package `@quetzalsoft/phenomena-atlas-contract`, which carries both the OpenAPI
+document and TypeScript types.
 
 Changing what this API exposes means changing the contract first, in a separate pull
 request, in the system repository. Implementing a response shape that the pinned
@@ -38,9 +41,15 @@ is never skipped, never marked flaky, and never merged red.
 
 ## Stack
 
-> TODO: language, framework, database, package manager, and the test, lint and run
-> commands. Fill this in with the first real commit. Keep it to the commands a new
-> contributor would otherwise have to find by reading config files.
+TypeScript.
+
+> TODO: framework, database, package manager, and the test, lint and run commands. Fill
+> this in with the first real commit. Keep it to the commands a new contributor would
+> otherwise have to find by reading config files.
+>
+> The framework choice also decides how the conformance test is implemented. Whatever is
+> picked must be able to validate real responses against the pinned OpenAPI document; do
+> not choose a framework without an answer to that.
 
 ## Conventions
 
