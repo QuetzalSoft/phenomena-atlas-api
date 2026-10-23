@@ -55,5 +55,15 @@ TypeScript.
 
 - All project text is English: code, comments, commits, documentation.
 - Short-lived branches off `main`, pull requests, no long-running branches.
+
+## `main` is protected
+
+This repository is public. `main` requires a pull request and one approving review, and
+cannot be deleted or force-pushed. Organisation admins can bypass all of it, including
+pushing straight to `main`; that is an escape hatch, not a route.
+
+> TODO: there is no required status check here yet, because there is no CI yet. Once
+> this component has a test suite, add it to the ruleset as a required check. Until then
+> a pull request can be merged with failing tests, because nothing is watching.
 - Domain rules are enforced here. A client-side check is a convenience, never the thing
   that protects an invariant.
