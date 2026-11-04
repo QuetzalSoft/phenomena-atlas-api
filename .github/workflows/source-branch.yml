@@ -1,0 +1,48 @@
+# Only develop and hotfix branches reach main.
+#
+# main is what runs in production and develop is where the sprint's work is integrated.
+# A pull request into main is therefore a release (from develop) or a hotfix (from
+# hotfix/*). Rulesets cannot restrict which branch a pull request comes from, so this
+# check does it, and main's ruleset requires it. See docs/adr/0005 in the system
+# repository (QuetzalSoft/phenomena-atlas).
+
+name: Source branch
+
+on:
+  pull_request:
+    # A base-branch filter is safe here, unlike the paths filter ADR 0004 removed from the
+    # contract check: `source-branch` is required only on main, so a pull request into any
+    # other branch never waits for it.
+    branches: [main]
+    # `edited` covers a pull request retargeted to main after it was opened.
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+jobs:
+  source-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull request comes from develop or hotfix/*
+        env:
+          # Passed through the environment, never interpolated into the script: a branch
+          # name is chosen by whoever opens the pull request.
+          HEAD_REF: ${{ github.head_ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          # A fork can name its branch develop too; only this repository's branches count.
+          if [ "$HEAD_REPO" != "$REPO" ]; then
+            echo "::error::Pull requests into main must come from this repository, not from $HEAD_REPO. Target develop instead."
+            exit 1
+          fi
+          case "$HEAD_REF" in
+            develop | hotfix/*)
+              echo "$HEAD_REF may be merged into main."
+              ;;
+            *)
+              echo "::error::'$HEAD_REF' cannot be merged into main. Work goes into develop; main only takes releases from develop and fixes from hotfix/*."
+              exit 1
+              ;;
+          esac
