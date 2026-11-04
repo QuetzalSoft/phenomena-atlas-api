@@ -54,16 +54,20 @@ TypeScript.
 ## Conventions
 
 - All project text is English: code, comments, commits, documentation.
-- Short-lived branches off `main`, pull requests, no long-running branches.
+- `main` is production, `develop` integrates the sprint (ADR 0005 in the system
+  repository). Branch off `develop` and open pull requests into it. `main` only takes
+  releases from `develop` and fixes from `hotfix/*`.
 
-## `main` is protected
+## `main` and `develop` are protected
 
-This repository is public. `main` requires a pull request and one approving review, and
-cannot be deleted or force-pushed. Organisation admins can bypass all of it, including
+This repository is public. Both branches require a pull request and one approving
+review, and cannot be deleted or force-pushed. `main` also only accepts merge commits
+and requires the `source-branch` check, which rejects pull requests that do not come
+from `develop` or `hotfix/*`. Organisation admins can bypass all of it, including
 pushing straight to `main`; that is an escape hatch, not a route.
 
-> TODO: there is no required status check here yet, because there is no CI yet. Once
-> this component has a test suite, add it to the ruleset as a required check. Until then
+> TODO: no test check is required here yet, because there is no test suite yet. Once
+> this component has a test suite, add it to both rulesets as a required check. Until then
 > a pull request can be merged with failing tests, because nothing is watching.
 - Domain rules are enforced here. A client-side check is a convenience, never the thing
   that protects an invariant.
