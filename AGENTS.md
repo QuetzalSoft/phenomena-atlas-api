@@ -41,15 +41,16 @@ is never skipped, never marked flaky, and never merged red.
 
 ## Stack
 
-TypeScript.
+TypeScript on NestJS, running on the active Node.js LTS, with Bun as the package manager.
+PostgreSQL with PostGIS, accessed through Kysely.
 
-> TODO: framework, database, package manager, and the test, lint and run commands. Fill
-> this in with the first real commit. Keep it to the commands a new contributor would
-> otherwise have to find by reading config files.
->
-> The framework choice also decides how the conformance test is implemented. Whatever is
-> picked must be able to validate real responses against the pinned OpenAPI document; do
-> not choose a framework without an answer to that.
+`docs/architecture.md` describes how the code is structured, following
+domain-driven-hexagon. Read it before adding a module or a use case. The conformance test
+validates real responses against the pinned OpenAPI document, as described there. Why this
+stack was chosen is in ADR 0006 in the system repository.
+
+> TODO: the test, lint and run commands. Fill this in with the first real commit. Keep it
+> to the commands a new contributor would otherwise have to find by reading config files.
 
 ## Conventions
 
@@ -57,6 +58,8 @@ TypeScript.
 - `main` is production, `develop` integrates the sprint (ADR 0005 in the system
   repository). Branch off `develop` and open pull requests into it. `main` only takes
   releases from `develop` and fixes from `hotfix/*`.
+- Domain rules are enforced here. A client-side check is a convenience, never the thing
+  that protects an invariant.
 
 ## `main` and `develop` are protected
 
@@ -69,5 +72,3 @@ pushing straight to `main`; that is an escape hatch, not a route.
 > TODO: no test check is required here yet, because there is no test suite yet. Once
 > this component has a test suite, add it to both rulesets as a required check. Until then
 > a pull request can be merged with failing tests, because nothing is watching.
-- Domain rules are enforced here. A client-side check is a convenience, never the thing
-  that protects an invariant.
