@@ -1,25 +1,13 @@
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { createApp } from "../src/app.js";
-import { loadAppConfig } from "../src/configs/app.config.js";
-import { testAuthEnv } from "./support/keycloak.js";
-
-const webOrigin = "http://localhost:3000";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { startTestApp, testWebOrigin as webOrigin } from "./support/app.js";
 
 describe("health", () => {
   let app: NestExpressApplication;
 
   beforeAll(async () => {
-    app = await createApp(
-      loadAppConfig({
-        WEB_ORIGIN: webOrigin,
-        VALIDATE_RESPONSES: "true",
-        DATABASE_URL: inject("databaseUrl"),
-        ...testAuthEnv(),
-      }),
-    );
-    await app.init();
+    app = await startTestApp();
   });
 
   afterAll(async () => {

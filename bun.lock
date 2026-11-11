@@ -9,11 +9,12 @@
         "@nestjs/core": "12.4.2",
         "@nestjs/cqrs": "12.1.2",
         "@nestjs/platform-express": "12.4.2",
-        "@quetzalsoft/phenomena-atlas-contract": "0.0.0",
+        "@quetzalsoft/phenomena-atlas-contract": "0.1.0-dev.2",
         "express": "5.3.0",
         "express-openapi-validator": "5.6.2",
         "jose": "6.2.13",
         "kysely": "0.29.7",
+        "neverthrow": "8.2.0",
         "pg": "8.23.1",
         "reflect-metadata": "0.2.2",
         "rxjs": "7.8.2",
@@ -35,6 +36,7 @@
         "typescript-eslint": "8.72.2",
         "unplugin-swc": "2.0.0",
         "vitest": "5.1.0",
+        "yaml": "2.9.1",
       },
     },
   },
@@ -193,7 +195,7 @@
 
     "@protobufjs/utf8": ["@protobufjs/utf8@1.1.2", "", {}, "sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug=="],
 
-    "@quetzalsoft/phenomena-atlas-contract": ["@quetzalsoft/phenomena-atlas-contract@0.0.0", "https://npm.pkg.github.com/download/@quetzalsoft/phenomena-atlas-contract/0.0.0/ac808cc495cd4bd75c333f09dba230e0f722c431", {}, "sha512-XZAYABVffrySxbh9wZLg4ijq5N5VqoV8s/dKNC7T8gAZ35pdkRnhtVptyTYt/caAFD2gCuY631QcvS1pcj8jIQ=="],
+    "@quetzalsoft/phenomena-atlas-contract": ["@quetzalsoft/phenomena-atlas-contract@0.1.0-dev.2", "https://npm.pkg.github.com/download/@quetzalsoft/phenomena-atlas-contract/0.1.0-dev.2/766f705ae57efdf3bb87894b7967da5600e3a9ec", {}, "sha512-fEQ3gGDpa854eMBNVALZgz1JuJGNQUFs/bJveclfgG1eOzKvavOFWZ9GPPrBmv8gnY7dL0qyzGQ1YZxWtNACLA=="],
 
     "@rolldown/binding-android-arm-eabi": ["@rolldown/binding-android-arm-eabi@1.2.19", "", { "os": "android", "cpu": "arm" }, "sha512-e+Ebe0WT+9tbXmNKPIiC8YrWAHYwug3m6i4p3rZGGulfZri1jtI4HslT+OZnFf/OIHowWF71DTlHwXBP2SiA7A=="],
 
@@ -230,6 +232,8 @@
     "@rolldown/pluginutils": ["@rolldown/pluginutils@1.1.0", "", {}, "sha512-K+NU2HDCEem4sClgHH4ZZXwdJeNFkJo+hRk479DIwdIviAPN2hFJH1KHHwg8CxHQXvi0M5XY4deTXINfIiSG6w=="],
 
     "@rollup/pluginutils": ["@rollup/pluginutils@5.5.1", "", { "dependencies": { "@types/estree": "^1.0.0", "estree-walker": "^2.0.2", "picomatch": "^4.0.2" }, "peerDependencies": { "rollup": "^1.20.0||^2.0.0||^3.0.0||^4.0.0" }, "optionalPeers": ["rollup"] }, "sha512-P9ZvnfouRu4MSC+ilERaw6FmZs8zqKhpHxEs4aGDGWQAMzQGXnhvCSvoNwokfNvdt7t3Y5Y4p6gStQgezeIqug=="],
+
+    "@rollup/rollup-linux-x64-gnu": ["@rollup/rollup-linux-x64-gnu@4.68.2", "", { "os": "linux", "cpu": "x64" }, "sha512-3Btp4Lca/WzsmbaKu9Lh9d/XwyRDIegd/5khRBusHGw/Ll6SoF5Shn63OrjPdkLcpNi2PGDApXzNmxriRxGYjA=="],
 
     "@sindresorhus/is": ["@sindresorhus/is@4.6.0", "", {}, "sha512-t09vSN3MdfsyCHoFcTRCH/iUtG7OJ0CsjzB8cjAmKc/va/kIgeDI/TxsigdncE/4be734m0cvIYwNaV4i2XqAw=="],
 
@@ -790,6 +794,8 @@
     "natural-compare": ["natural-compare@1.4.0", "", {}, "sha512-OWND8ei3VtNC9h7V60qff3SVobHr996CTwgxubgyQYEpg290h9J0buyECNNJexkFm5sOajh5G116RYA1c8ZMSw=="],
 
     "negotiator": ["negotiator@1.1.0", "", { "dependencies": { "content-type": "^2.1.0" } }, "sha512-NMPBRMJgiQHjbd8phG3Vebdx4kZ1H121rbl5IkMqeOsahptB9BKo/d7oJ3zTXqTgagn2bWlNSXkh0QUGM31RYg=="],
+
+    "neverthrow": ["neverthrow@8.2.0", "", { "optionalDependencies": { "@rollup/rollup-linux-x64-gnu": "^4.24.0" } }, "sha512-kOCT/1MCPAxY5iUV3wytNFUMUolzuwd/VF/1KCx7kf6CutrOsTie+84zTGTpgQycjvfLdBBdvBvFLqFD2c0wkQ=="],
 
     "node-emoji": ["node-emoji@2.2.0", "", { "dependencies": { "@sindresorhus/is": "^4.6.0", "char-regex": "^1.0.2", "emojilib": "^2.4.0", "skin-tone": "^2.0.0" } }, "sha512-Z3lTE9pLaJF47NyMhd4ww1yFTAP8YhYI8SleJiHzM46Fgpm5cnNzSl9XfzFNqbaz+VlJrIj3fXQ4DeN1Rjm6cw=="],
 

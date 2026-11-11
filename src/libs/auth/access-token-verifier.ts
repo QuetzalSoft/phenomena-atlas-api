@@ -13,6 +13,10 @@ export interface AccessTokenOptions {
 export interface Principal {
   /** The identity provider's id for the user, stable across sessions. */
   subject: string;
+  /** The profile the token carries, absent when the identity provider does not include it. */
+  username?: string;
+  name?: string;
+  email?: string;
 }
 
 /** The token is missing, malformed, expired, or not meant for this API. Answers 401. */
@@ -43,6 +47,11 @@ const tokenErrors = [
   errors.JOSENotSupported,
 ];
 
+/** A profile claim as a property, or nothing when the token lacks it or it is not a string. */
+function stringClaim<K extends string>(key: K, value: unknown): Partial<Record<K, string>> {
+  return typeof value === "string" && value ? ({ [key]: value } as Record<K, string>) : {};
+}
+
 /** Checks an access token's signature, issuer, audience and expiry. */
 export class AccessTokenVerifier {
   private readonly keys: ReturnType<typeof createRemoteJWKSet>;
@@ -60,7 +69,12 @@ export class AccessTokenVerifier {
         algorithms: ["RS256"],
         requiredClaims: ["sub"],
       });
-      return { subject: payload.sub as string };
+      return {
+        subject: payload.sub as string,
+        ...stringClaim("username", payload.preferred_username),
+        ...stringClaim("name", payload.name),
+        ...stringClaim("email", payload.email),
+      };
     } catch (error) {
       if (tokenErrors.some((tokenError) => error instanceof tokenError)) {
         throw new InvalidAccessTokenError({ cause: error });
