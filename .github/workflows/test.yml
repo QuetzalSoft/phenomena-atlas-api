@@ -1,0 +1,59 @@
+# Typecheck, lint, build and the full test suite, on every pull request.
+#
+# The `test` job is a required check on develop and main. Like the contract check in the
+# system repository, it runs on every pull request with no paths filter: GitHub cannot tell
+# "filtered out" from "not reported yet", and a required check that never reports blocks
+# the merge forever.
+#
+# The end-to-end specs start PostGIS and Keycloak with Testcontainers, so this needs the
+# runner's Docker. They run on Node, not Bun: under Bun Testcontainers hangs and the test
+# setup refuses to start.
+
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  # The contract package lives in GitHub Packages, private to the organisation.
+  packages: read
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .node-version
+
+      # Same pin as the system repository's workflows.
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Install dependencies
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Build
+        run: bun run build
+
+      - name: Test
+        run: bun run test
