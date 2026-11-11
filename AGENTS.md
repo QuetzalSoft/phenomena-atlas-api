@@ -64,6 +64,7 @@ is not installed, and under Bun Testcontainers hangs, so the test setup refuses 
 bun install
 docker compose up -d --wait            # PostGIS on :5432, Keycloak on :8080
 bun run build && bun run migrate       # apply pending migrations; `migrate down` reverts one
+bun run set-role 00000000-0000-4000-8000-000000000001 admin   # make the realm's `admin` user an admin
 bun run dev          # watch mode on :8000
 bun run build && bun run start
 bun run typecheck
@@ -72,10 +73,17 @@ bun run test         # specs against PostGIS and Keycloak from Testcontainers, r
 ```
 
 Keycloak's realm comes from `keycloak/phenomena-atlas-realm.json`, imported when the
-container is created. It has the web client and a `dev` user with password `dev`; the
-admin console is at http://localhost:8080/admin with `admin`/`admin`. Recreate the
-container after editing the file: `docker compose up -d --force-recreate keycloak`.
-These credentials are for local development only.
+container is created. It has the web client, a `dev` user with password `dev` and an `admin`
+user with password `admin` and a fixed id, so `set-role` can make it an admin before it
+first signs in. The Keycloak admin console, a separate login, is at
+http://localhost:8080/admin with `admin`/`admin`. Recreate the container after editing the
+file: `docker compose up -d --force-recreate keycloak`. These credentials are for local
+development only.
+
+`bun run set-role <email | identity provider user id> <user | analyst | admin>` is how an
+operator sets a role outside the API: making the first admin of an environment, or
+recovering when every admin is lost. An email only finds someone who has signed in at
+least once; an identity provider id creates the account if needed.
 
 Bun uses the isolated linker (`bunfig.toml`). The hoisted layout resolved
 `express-openapi-validator`'s `ajv-draft-04` against ESLint's `ajv` 6 and broke at startup.

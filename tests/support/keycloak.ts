@@ -24,11 +24,30 @@ export function testAuthEnv(): Record<string, string> {
   return { AUTH_ISSUER: issuer, AUTH_AUDIENCE: audience, AUTH_JWKS_URL: jwksUrl };
 }
 
-/** Logs in as the realm's dev user and returns the access token Keycloak issues. */
-export async function issueAccessToken(clientId = testClientId): Promise<string> {
+/**
+ * People who exist only in the test Keycloak, so each spec can sign in as someone no other
+ * spec touches. Their password is their username.
+ */
+export const testUsernames = ["alice", "bob", "carol", "dave", "erin", "frank"] as const;
+export type TestUsername = (typeof testUsernames)[number];
+
+/** The profile Keycloak holds for a test user, and so the one their tokens carry. */
+export function testUserProfile(username: TestUsername) {
+  const firstName = username[0]?.toUpperCase() + username.slice(1);
+  return { username, email: `${username}@tests.phenomena-atlas.local`, firstName, lastName: "Tester" };
+}
+
+export interface IssueOptions {
+  clientId?: string;
+  /** The realm's `dev` user by default. */
+  username?: "dev" | TestUsername;
+}
+
+/** Logs in and returns the access token Keycloak issues. */
+export async function issueAccessToken({ clientId = testClientId, username = "dev" }: IssueOptions = {}): Promise<string> {
   const response = await fetch(`${testAuthOptions().issuer}/protocol/openid-connect/token`, {
     method: "POST",
-    body: new URLSearchParams({ grant_type: "password", client_id: clientId, username: "dev", password: "dev" }),
+    body: new URLSearchParams({ grant_type: "password", client_id: clientId, username, password: username }),
   });
   if (!response.ok) {
     throw new Error(`Keycloak refused the login: ${response.status} ${await response.text()}`);

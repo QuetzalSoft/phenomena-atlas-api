@@ -9,11 +9,16 @@ describe("AccessTokenVerifier", () => {
 
     const principal = await new AccessTokenVerifier(testAuthOptions()).verify(token);
 
-    expect(principal).toEqual({ subject: decodeJwt(token).sub });
+    expect(principal).toEqual({
+      subject: decodeJwt(token).sub,
+      username: "dev",
+      name: "Dev User",
+      email: "dev@phenomena-atlas.local",
+    });
   });
 
   it("refuses a token minted for another audience", async () => {
-    const token = await issueAccessToken(otherAudienceClientId);
+    const token = await issueAccessToken({ clientId: otherAudienceClientId });
 
     await expect(new AccessTokenVerifier(testAuthOptions()).verify(token)).rejects.toThrow(InvalidAccessTokenError);
   });

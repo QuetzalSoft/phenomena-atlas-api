@@ -4,7 +4,7 @@ import { GenericContainer, type StartedTestContainer, Wait } from "testcontainer
 import type { TestProject } from "vitest/node";
 import { createDatabase } from "../src/libs/db/database.js";
 import { createMigrator, throwIfFailed } from "../src/libs/db/migrator.js";
-import { otherAudienceClientId, realm, testClientId } from "./support/keycloak.js";
+import { otherAudienceClientId, realm, testClientId, testUsernames, testUserProfile } from "./support/keycloak.js";
 
 declare module "vitest" {
   export interface ProvidedContext {
@@ -73,11 +73,13 @@ interface RealmClient {
 
 interface RealmFile {
   clients: RealmClient[];
+  users: unknown[];
   [key: string]: unknown;
 }
 
 // Copies of the real web client, so the tokens tests get carry exactly what the web gets.
-// They allow logging in with a password, which the real client must not.
+// They allow logging in with a password, which the real client must not. Also adds the
+// test users, so each spec can sign in as people no other spec touches.
 function withTestClients(realmFile: RealmFile): RealmFile {
   const web = realmFile.clients.find((client) => client.clientId === "phenomena-atlas-web");
   if (!web) {
@@ -89,6 +91,15 @@ function withTestClients(realmFile: RealmFile): RealmFile {
       ...realmFile.clients,
       { ...web, clientId: testClientId, directAccessGrantsEnabled: true },
       { ...web, clientId: otherAudienceClientId, directAccessGrantsEnabled: true, protocolMappers: [] },
+    ],
+    users: [
+      ...realmFile.users,
+      ...testUsernames.map((username) => ({
+        ...testUserProfile(username),
+        emailVerified: true,
+        enabled: true,
+        credentials: [{ type: "password", value: username, temporary: false }],
+      })),
     ],
   };
 }

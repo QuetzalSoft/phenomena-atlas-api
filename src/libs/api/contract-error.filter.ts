@@ -3,6 +3,7 @@ import type { Response } from "express";
 // The package does not export its base error class from the root.
 import { HttpError as ValidatorHttpError } from "express-openapi-validator/dist/framework/types.js";
 import type { Schemas } from "./contract.js";
+import { ContractHttpException } from "./contract-http.exception.js";
 
 // Stable codes for failures that are not specific to a use case. Codes are part of the
 // public product, so they are listed here rather than derived from framework messages.
@@ -38,6 +39,11 @@ export class ContractErrorFilter implements ExceptionFilter {
       return;
     }
 
+    if (exception instanceof ContractHttpException && exception.getStatus() < 500) {
+      this.send(response, exception.getStatus(), exception.message, undefined, exception.code);
+      return;
+    }
+
     if (exception instanceof HttpException && exception.getStatus() < 500) {
       this.send(response, exception.getStatus(), exception.message);
       return;
@@ -47,9 +53,15 @@ export class ContractErrorFilter implements ExceptionFilter {
     this.send(response, 500, "An unexpected error occurred.");
   }
 
-  private send(response: Response, status: number, message: string, details?: Record<string, unknown>): void {
+  private send(
+    response: Response,
+    status: number,
+    message: string,
+    details?: Record<string, unknown>,
+    code?: string,
+  ): void {
     const body: Schemas["Error"] = {
-      code: status >= 500 ? "internal_error" : (codeByStatus[status] ?? "request_failed"),
+      code: code ?? (status >= 500 ? "internal_error" : (codeByStatus[status] ?? "request_failed")),
       message,
       ...(details && { details }),
     };

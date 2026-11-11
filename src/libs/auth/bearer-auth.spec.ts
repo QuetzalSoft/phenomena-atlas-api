@@ -15,7 +15,7 @@ describe("bearerAuth", () => {
     const request = requestWith(`Bearer ${token}`);
 
     await expect(handler()(request)).resolves.toBe(true);
-    expect((request as AuthenticatedRequest).principal).toEqual({ subject: decodeJwt(token).sub });
+    expect((request as AuthenticatedRequest).principal).toMatchObject({ subject: decodeJwt(token).sub });
   });
 
   it("refuses a request without a bearer token", async () => {

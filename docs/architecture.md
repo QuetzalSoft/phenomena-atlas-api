@@ -5,8 +5,9 @@ How this API is structured internally. How it fits into the product is in
 ADR 0006 there.
 
 This document describes the target. Only part of it is built so far: the health slice, the
-contract edge, access token checks in `src/libs/auth/` and the persistence plumbing in
-`src/libs/db/`. The rest arrives with the first real module.
+contract edge, access token checks in `src/libs/auth/`, the persistence plumbing in
+`src/libs/db/`, and the `account` module with authorization. Events, the `ddd/` base classes
+and `dependency-cruiser` arrive when a module needs them.
 
 ## Sources and precedence
 
@@ -223,6 +224,16 @@ Keycloak only says who the user is. What the user may do is the API's business: 
 permissions live in this database, keyed by the token's subject, and are checked in the
 API. There is no foreign key to Keycloak and no role claim is read from the token.
 
+**Authorization comes from the contract too.** Every operation that requires a token states
+its minimum role with the `x-minimum-role` extension (ADR 0009 in the system repository).
+`AuthorizationGuard` in the `account` module runs before every controller: it loads the
+caller's account, creating it with the role `user` on the first request and refreshing its
+username, name and email from the token when they change, then compares its role with the
+operation's minimum. A shortfall answers 403 `forbidden`. A protected operation without a
+minimum role is a contract bug and answers 500; a spec checks the pinned contract for it,
+so it fails in the test suite first. Controllers that need the caller read
+`request.account` through `callerOf`.
+
 **Caching belongs to the read side.** Query controllers set ETag and cache headers, and the
 contract declares them.
 
@@ -353,9 +364,6 @@ Two things to get right:
 | NestJS 9 | Current NestJS | Follow the pattern, not the version pins |
 
 ## Open decisions
-
-> TODO: users and roles. Keycloak authenticates and the API checks tokens, but no user table
-> or role exists yet. They arrive with the domain, which decides what the roles are.
 
 > TODO: the module list. Blocked on `docs/domain.md` in the system repository.
 

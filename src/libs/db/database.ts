@@ -1,13 +1,25 @@
 import { Logger } from "@nestjs/common";
-import { Kysely, PostgresDialect } from "kysely";
+import { type ColumnType, type Generated, Kysely, PostgresDialect } from "kysely";
 import { Pool } from "pg";
 
 /**
  * Every table the API reads or writes, keyed by table name. A module adds its tables here,
  * written by hand to match the migration that creates them.
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- no table exists yet
-export interface Database {}
+export interface Database {
+  account: AccountTable;
+}
+
+/** See database/migrations/20261111190000_create_account.ts. */
+export interface AccountTable {
+  id: Generated<string>;
+  subject: string;
+  username: string | null;
+  name: string | null;
+  email: string | null;
+  role: ColumnType<"user" | "analyst" | "admin", "user" | "analyst" | "admin" | undefined>;
+  created_at: ColumnType<Date, never, never>;
+}
 
 /** Injection token for the `Kysely<Database>` instance. */
 export const DATABASE = Symbol("DATABASE");
