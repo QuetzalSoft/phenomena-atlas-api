@@ -97,6 +97,9 @@ and requires the `source-branch` check, which rejects pull requests that do not 
 from `develop` or `hotfix/*`. Organisation admins can bypass all of it, including
 pushing straight to `main`; that is an escape hatch, not a route.
 
-> TODO: no test check is required here yet, because there is no test suite yet. Once
-> this component has a test suite, add it to both rulesets as a required check. Until then
-> a pull request can be merged with failing tests, because nothing is watching.
+Both branches also require the `test` check (`.github/workflows/test.yml`): typecheck,
+lint, build and the full suite, PostGIS and Keycloak included. It runs on every pull
+request with no paths filter, because a required check that never reports blocks the
+merge. Installing needs the contract package, which is private: this repository has read
+access to it under the package's "Manage Actions access" settings, and losing that access
+shows up as a 403 in the install step.
