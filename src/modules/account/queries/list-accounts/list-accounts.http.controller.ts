@@ -16,7 +16,14 @@ export class ListAccountsHttpController {
   async listAccounts(@Query() params: ListAccountsParams): Promise<Schemas["AccountPage"]> {
     // The validator has checked the range, but query values may still arrive as strings.
     const limit = params.limit === undefined ? defaultLimit : Number(params.limit);
-    const result = await this.queryBus.execute(new ListAccountsQuery(limit, params.cursor));
+    const result = await this.queryBus.execute(
+      new ListAccountsQuery(limit, params.cursor, {
+        ...(params.role !== undefined && { role: params.role }),
+        ...(params.q !== undefined && { text: params.q }),
+        ...(params.createdFrom !== undefined && { createdFrom: new Date(params.createdFrom) }),
+        ...(params.createdBefore !== undefined && { createdBefore: new Date(params.createdBefore) }),
+      }),
+    );
     return result.match(
       (page) => page,
       (error) => {
