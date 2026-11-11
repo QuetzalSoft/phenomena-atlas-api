@@ -9,7 +9,7 @@
         "@nestjs/core": "12.4.2",
         "@nestjs/cqrs": "12.1.2",
         "@nestjs/platform-express": "12.4.2",
-        "@quetzalsoft/phenomena-atlas-contract": "0.1.0-dev.2",
+        "@quetzalsoft/phenomena-atlas-contract": "0.1.0-dev.3",
         "express": "5.3.0",
         "express-openapi-validator": "5.6.2",
         "jose": "6.2.13",
@@ -195,7 +195,7 @@
 
     "@protobufjs/utf8": ["@protobufjs/utf8@1.1.2", "", {}, "sha512-b1UQwcEZ4yCnMCD8DAL1VlbvBJE9/IX4FTIp7BG1xYpf29SLazLSrqUkj4w7Y5y7cCVP6E5tcqqcI0xemPkHug=="],
 
-    "@quetzalsoft/phenomena-atlas-contract": ["@quetzalsoft/phenomena-atlas-contract@0.1.0-dev.2", "https://npm.pkg.github.com/download/@quetzalsoft/phenomena-atlas-contract/0.1.0-dev.2/766f705ae57efdf3bb87894b7967da5600e3a9ec", {}, "sha512-fEQ3gGDpa854eMBNVALZgz1JuJGNQUFs/bJveclfgG1eOzKvavOFWZ9GPPrBmv8gnY7dL0qyzGQ1YZxWtNACLA=="],
+    "@quetzalsoft/phenomena-atlas-contract": ["@quetzalsoft/phenomena-atlas-contract@0.1.0-dev.3", "https://npm.pkg.github.com/download/@quetzalsoft/phenomena-atlas-contract/0.1.0-dev.3/51a1fbbea27f28b268550e3c913471c5ec5a18aa", {}, "sha512-xd6zYaAuDoUb9ZybeT2yMKW09e9j7E2H7+QJFse0eIgvTYRno6vmYwQ89Uxls10v0k1JwRTVGtzqx4YEKFY+mw=="],
 
     "@rolldown/binding-android-arm-eabi": ["@rolldown/binding-android-arm-eabi@1.2.19", "", { "os": "android", "cpu": "arm" }, "sha512-e+Ebe0WT+9tbXmNKPIiC8YrWAHYwug3m6i4p3rZGGulfZri1jtI4HslT+OZnFf/OIHowWF71DTlHwXBP2SiA7A=="],
 

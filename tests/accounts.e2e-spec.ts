@@ -2,7 +2,7 @@ import type { NestExpressApplication } from "@nestjs/platform-express";
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Schemas } from "../src/libs/api/contract.js";
-import { signInAs } from "./support/accounts.js";
+import { signInAs, storeAccounts } from "./support/accounts.js";
 import { startTestApp } from "./support/app.js";
 import { issueAccessToken, testUserProfile } from "./support/keycloak.js";
 
@@ -98,6 +98,109 @@ describe("accounts", () => {
 
       await http().get("/accounts").query({ limit: 0 }).auth(admin, { type: "bearer" }).expect(400);
       await http().get("/accounts").query({ limit: 201 }).auth(admin, { type: "bearer" }).expect(400);
+    });
+  });
+
+  describe("filtering accounts", () => {
+    // Every account here carries this marker, so searching for it leaves out the accounts
+    // other specs create. They are dated 2001, long before any of those.
+    const marker = `flt${Date.now().toString(36)}`;
+    const stored = [
+      { username: `${marker}-ana`, name: "Ana Pérez", email: `ana.${marker}@example.test`, role: "user", createdAt: "2001-01-01T00:00:00.000Z" },
+      { username: `${marker}-andrés`, name: "Andrés Soto", email: `andres.${marker}@example.test`, role: "analyst", createdAt: "2001-01-15T12:00:00.000Z" },
+      { username: `${marker}-ari`, name: "Ari 100%_Real", email: `ari.${marker}@example.test`, role: "analyst", createdAt: "2001-02-01T00:00:00.000Z" },
+      { username: `${marker}-bea`, name: "Bea Ramos", email: `bea.${marker}@example.test`, role: "admin", createdAt: "2001-02-10T08:30:00.000Z" },
+      { username: `${marker}-ben`, name: "Ben Ito", email: `ben.${marker}@example.test`, role: "analyst", createdAt: "2001-03-01T00:00:00.000Z" },
+    ] as const;
+    let admin: string;
+
+    beforeAll(async () => {
+      admin = await signInAs("dave", "admin");
+      await storeAccounts([...stored]);
+    });
+
+    /** Every page of the filtered list, as usernames. */
+    const list = async (filters: Record<string, string>, limit = 50) => {
+      const usernames: string[] = [];
+      let cursor: string | undefined;
+      do {
+        const response = await http()
+          .get("/accounts")
+          .query({ limit, ...filters, ...(cursor && { cursor }) })
+          .auth(admin, { type: "bearer" })
+          .expect(200);
+        const page = response.body as Schemas["AccountPage"];
+        usernames.push(...page.items.map((account) => account.username ?? ""));
+        cursor = page.nextCursor;
+      } while (cursor);
+      return usernames;
+    };
+    const names = (...suffixes: string[]) => suffixes.map((suffix) => `${marker}-${suffix}`);
+
+    it("finds text in the username, the name or the email, ignoring case", async () => {
+      expect(await list({ q: marker.toUpperCase() })).toEqual(names("ana", "andrés", "ari", "bea", "ben"));
+      expect(await list({ q: `${marker}-B` })).toEqual(names("bea", "ben"));
+      expect(await list({ q: "RAMOS" })).toContain(`${marker}-bea`);
+      expect(await list({ q: `andres.${marker}` })).toEqual(names("andrés"));
+    });
+
+    it("takes % and _ in the text literally", async () => {
+      expect(await list({ q: "100%_Real" })).toEqual(names("ari"));
+      expect(await list({ q: `${marker}%` })).toEqual([]);
+      expect(await list({ q: `${marker}_` })).toEqual([]);
+    });
+
+    it("filters by role", async () => {
+      expect(await list({ q: marker, role: "analyst" })).toEqual(names("andrés", "ari", "ben"));
+      expect(await list({ q: marker, role: "admin" })).toEqual(names("bea"));
+    });
+
+    it("filters by a half-open creation range", async () => {
+      expect(await list({ q: marker, createdFrom: "2001-01-15T12:00:00.000Z" })).toEqual(names("andrés", "ari", "bea", "ben"));
+      expect(await list({ q: marker, createdBefore: "2001-02-01T00:00:00.000Z" })).toEqual(names("ana", "andrés"));
+      expect(
+        await list({ q: marker, createdFrom: "2001-01-02T00:00:00.000Z", createdBefore: "2001-03-01T00:00:00.000Z" }),
+      ).toEqual(names("andrés", "ari", "bea"));
+    });
+
+    it("combines every filter", async () => {
+      const filters = {
+        q: `${marker}-a`,
+        role: "analyst",
+        createdFrom: "2001-01-10T00:00:00.000Z",
+        createdBefore: "2001-02-15T00:00:00.000Z",
+      };
+      expect(await list(filters)).toEqual(names("andrés", "ari"));
+    });
+
+    it("pages through a filtered list with no duplicates or gaps", async () => {
+      expect(await list({ q: marker }, 2)).toEqual(names("ana", "andrés", "ari", "bea", "ben"));
+      expect(await list({ q: marker, role: "analyst" }, 1)).toEqual(names("andrés", "ari", "ben"));
+    });
+
+    it("refuses an empty or inverted creation range", async () => {
+      for (const range of [
+        { createdFrom: "2001-02-01T00:00:00.000Z", createdBefore: "2001-01-01T00:00:00.000Z" },
+        { createdFrom: "2001-02-01T00:00:00.000Z", createdBefore: "2001-02-01T00:00:00.000Z" },
+      ]) {
+        const response = await http().get("/accounts").query(range).auth(admin, { type: "bearer" }).expect(400);
+        expect(response.body).toMatchObject({ code: "invalid_date_range" });
+      }
+    });
+
+    it("refuses filters that do not match the contract", async () => {
+      for (const filters of [{ role: "superuser" }, { q: "" }, { q: "x".repeat(101) }, { createdFrom: "yesterday" }]) {
+        await http().get("/accounts").query(filters).auth(admin, { type: "bearer" }).expect(400);
+      }
+    });
+
+    it("is refused to users and analysts", async () => {
+      const response = await http()
+        .get("/accounts")
+        .query({ q: marker })
+        .auth(await signInAs("carol", "analyst"), { type: "bearer" })
+        .expect(403);
+      expect(response.body).toMatchObject({ code: "forbidden" });
     });
   });
 

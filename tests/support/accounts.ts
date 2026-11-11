@@ -1,4 +1,6 @@
+import { randomUUID } from "node:crypto";
 import { decodeJwt } from "jose";
+import { sql } from "kysely";
 import { inject } from "vitest";
 import { createDatabase } from "../../src/libs/db/database.js";
 import { TransactionManager } from "../../src/libs/db/transaction-manager.js";
@@ -18,4 +20,31 @@ export async function signInAs(username: TestUsername, role: Role): Promise<stri
     await db.destroy();
   }
   return token;
+}
+
+export interface StoredAccount {
+  username: string;
+  name?: string;
+  email?: string;
+  role: Role;
+  createdAt: string;
+}
+
+/**
+ * Stores accounts directly, with a chosen creation time, as if those people had signed in
+ * then. The API sets created_at itself, so only a test can backdate an account.
+ */
+export async function storeAccounts(accounts: StoredAccount[]): Promise<void> {
+  const db = createDatabase(inject("databaseUrl"));
+  try {
+    for (const account of accounts) {
+      await sql`
+        INSERT INTO account (subject, username, name, email, role, created_at)
+        VALUES (${randomUUID()}, ${account.username}, ${account.name ?? null}, ${account.email ?? null},
+                ${account.role}, ${account.createdAt}::timestamptz)
+      `.execute(db);
+    }
+  } finally {
+    await db.destroy();
+  }
 }

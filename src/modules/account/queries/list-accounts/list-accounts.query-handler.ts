@@ -5,14 +5,19 @@ import { err, ok, type Result } from "neverthrow";
 import type { Schemas } from "../../../../libs/api/contract.js";
 import { DATABASE, type Database } from "../../../../libs/db/database.js";
 import { accountFromRow, accountResponse } from "../../account.mapper.js";
-import { decodeCursor, encodeCursor, type InvalidCursorError } from "./account-cursor.js";
-import { ListAccountsQuery } from "./list-accounts.query.js";
+import { decodeCursor, encodeCursor } from "./account-cursor.js";
+import { InvalidDateRangeError, ListAccountsQuery, type ListAccountsError } from "./list-accounts.query.js";
 
 @QueryHandler(ListAccountsQuery)
 export class ListAccountsQueryHandler implements IQueryHandler<ListAccountsQuery> {
   constructor(@Inject(DATABASE) private readonly db: Kysely<Database>) {}
 
-  async execute({ limit, cursor }: ListAccountsQuery): Promise<Result<Schemas["AccountPage"], InvalidCursorError>> {
+  async execute({ limit, cursor, filters }: ListAccountsQuery): Promise<Result<Schemas["AccountPage"], ListAccountsError>> {
+    const { role, text, createdFrom, createdBefore } = filters;
+    if (createdFrom && createdBefore && createdFrom >= createdBefore) {
+      return err(new InvalidDateRangeError());
+    }
+
     let after;
     if (cursor !== undefined) {
       const decoded = decodeCursor(cursor);
@@ -32,6 +37,24 @@ export class ListAccountsQueryHandler implements IQueryHandler<ListAccountsQuery
       .limit(limit + 1);
     if (after) {
       query = query.where(sql<boolean>`(created_at, id) > (${after.createdAt}::timestamptz, ${after.id}::uuid)`);
+    }
+    if (role) {
+      query = query.where("role", "=", role);
+    }
+    if (text) {
+      // The account_*_trgm_idx indexes serve these. ESCAPE makes \, % and _ in the text literal.
+      const pattern = `%${text.replace(/[\\%_]/g, "\\$&")}%`;
+      query = query.where((eb) =>
+        eb.or(
+          (["username", "name", "email"] as const).map((column) => sql<boolean>`${sql.ref(column)} ILIKE ${pattern} ESCAPE '\\'`),
+        ),
+      );
+    }
+    if (createdFrom) {
+      query = query.where("created_at", ">=", createdFrom);
+    }
+    if (createdBefore) {
+      query = query.where("created_at", "<", createdBefore);
     }
     const rows = await query.execute();
 
