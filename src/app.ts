@@ -6,6 +6,8 @@ import * as OpenApiValidator from "express-openapi-validator";
 import { AppModule } from "./app.module.js";
 import type { AppConfig } from "./configs/app.config.js";
 import { contractSpecPath } from "./libs/api/contract.js";
+import { AccessTokenVerifier } from "./libs/auth/access-token-verifier.js";
+import { bearerAuth } from "./libs/auth/bearer-auth.js";
 import { ContractErrorFilter } from "./libs/api/contract-error.filter.js";
 
 /** Builds the application. Shared by main.ts and the end-to-end tests so both run the same stack. */
@@ -13,7 +15,7 @@ export async function createApp(config: AppConfig): Promise<NestExpressApplicati
   // The order below matters. NestJS registers its own body parser during initialization,
   // after anything added with app.use, so the validator would see no body. CORS must run
   // before the validator, or preflight requests get a 405.
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(config), { bodyParser: false });
   app.disable("x-powered-by");
   app.enableCors({ origin: config.webOrigins });
   app.use(express.json());
@@ -22,8 +24,7 @@ export async function createApp(config: AppConfig): Promise<NestExpressApplicati
       apiSpec: contractSpecPath,
       validateRequests: true,
       validateResponses: config.validateResponses,
-      // Authentication is not decided yet; see Open decisions in docs/architecture.md.
-      validateSecurity: false,
+      validateSecurity: { handlers: { BearerAuth: bearerAuth(new AccessTokenVerifier(config.auth)) } },
     }),
   );
   app.useGlobalFilters(new ContractErrorFilter());

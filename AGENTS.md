@@ -53,16 +53,29 @@ stack was chosen is in ADR 0006 in the system repository.
 
 The contract package comes from GitHub Packages, so installing needs `GITHUB_TOKEN` set to
 a token with `read:packages` (`export GITHUB_TOKEN=$(gh auth token)` after
-`gh auth refresh -s read:packages`). Copy `.env.example` to `.env` for local settings.
+`gh auth refresh -s read:packages`). Copy `.env.example` to `.env` for local settings; the
+scripts load it through Node's `--env-file`, and a variable already set in the environment
+wins.
+
+Node.js (`.node-version`) and Docker are required. `bun run` falls back to Bun when `node`
+is not installed, and under Bun Testcontainers hangs, so the test setup refuses to run there.
 
 ```sh
 bun install
+docker compose up -d --wait            # PostGIS on :5432, Keycloak on :8080
+bun run build && bun run migrate       # apply pending migrations; `migrate down` reverts one
 bun run dev          # watch mode on :8000
 bun run build && bun run start
 bun run typecheck
 bun run lint
-bun run test         # end-to-end specs, response validation on
+bun run test         # specs against PostGIS and Keycloak from Testcontainers, response validation on
 ```
+
+Keycloak's realm comes from `keycloak/phenomena-atlas-realm.json`, imported when the
+container is created. It has the web client and a `dev` user with password `dev`; the
+admin console is at http://localhost:8080/admin with `admin`/`admin`. Recreate the
+container after editing the file: `docker compose up -d --force-recreate keycloak`.
+These credentials are for local development only.
 
 Bun uses the isolated linker (`bunfig.toml`). The hoisted layout resolved
 `express-openapi-validator`'s `ajv-draft-04` against ESLint's `ajv` 6 and broke at startup.

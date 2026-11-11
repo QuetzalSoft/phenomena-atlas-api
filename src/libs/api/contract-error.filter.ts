@@ -25,10 +25,14 @@ export class ContractErrorFilter implements ExceptionFilter {
   catch(exception: unknown, host: ArgumentsHost): void {
     const response = host.switchToHttp().getResponse<Response>();
 
-    if (exception instanceof ValidatorHttpError) {
+    if (exception instanceof ValidatorHttpError && exception.status < 500) {
       // A 405 needs its Allow header, and conformance checks fail without it.
       if (exception.headers?.Allow) {
         response.setHeader("Allow", exception.headers.Allow);
+      }
+      // RFC 6750: a 401 names the scheme the client must use.
+      if (exception.status === 401) {
+        response.setHeader("WWW-Authenticate", "Bearer");
       }
       this.send(response, exception.status, exception.message, { errors: exception.errors });
       return;
