@@ -4,8 +4,9 @@ How this API is structured internally. How it fits into the product is in
 `docs/architecture.md` in the system repository, and why this structure was chosen is in
 ADR 0006 there.
 
-This document describes the target. There is no application code yet, so nothing here
-exists until the first real commit builds it.
+This document describes the target. Only part of it is built so far: the health slice, the
+contract edge, access token checks in `src/libs/auth/` and the persistence plumbing in
+`src/libs/db/`. The rest arrives with the first real module.
 
 ## Sources and precedence
 
@@ -28,6 +29,8 @@ ports and extra abstractions must each earn their place.
 | Language | TypeScript 6 (see [Enforcement](#enforcement) for why not 7) |
 | Database | PostgreSQL with PostGIS |
 | Database client | Kysely over `pg` |
+| Identity provider | Keycloak, self-hosted (ADR 0008 in the system repository) |
+| Access token checks | `jose` |
 | Request and response validation | `express-openapi-validator` |
 | Expected failures | `Result` from `neverthrow` |
 | Conformance | Schemathesis, plus response validation in the e2e suite |
@@ -93,8 +96,9 @@ src/
   configs/
   libs/
     api/                    contract error rendering
+    auth/                   access token verifier, BearerAuth handler
     application/            request context and its interceptor
-    db/                     repository base class, Kysely provider
+    db/                     Kysely provider, transaction manager, migrator, repository base class
     ddd/                    Entity, AggregateRoot, ValueObject, DomainEvent, Command, Query
     exceptions/             base error class and generic errors
     ports/                  ports shared across modules
@@ -207,6 +211,18 @@ validator nor Schemathesis rejects an extra field in a response.
 `validateResponses` is on in tests and off in production. A wrong response should be caught
 by the test suite, not turned into a 500 for a user.
 
+**Authentication comes from the contract too.** The contract declares which operations need
+a `BearerAuth` token, and the validator calls `bearerAuth` for exactly those. No controller
+or guard decides it. The handler checks the token's signature against Keycloak's published
+keys, its issuer, its audience (`phenomena-atlas-api`) and its expiry, then sets
+`request.principal` to the token's subject. A bad token answers 401 with
+`WWW-Authenticate: Bearer`; failing to fetch the keys answers 500, because it is not the
+caller's fault.
+
+Keycloak only says who the user is. What the user may do is the API's business: roles and
+permissions live in this database, keyed by the token's subject, and are checked in the
+API. There is no foreign key to Keycloak and no role claim is read from the token.
+
 **Caching belongs to the read side.** Query controllers set ETag and cache headers, and the
 contract declares them.
 
@@ -216,10 +232,15 @@ contract declares them.
   model through the module's mapper. A database change should not force a domain change.
 - **The repository base class** holds the shared write path, and publishes domain events
   inside the transaction.
-- **Transactions** are opened by the service through the repository port, as in DDH. The
-  active Kysely transaction travels in the request context, built on Node's
-  `AsyncLocalStorage`.
-- **Kysely** is typed by a schema interface. PostGIS functions go through its `sql` template:
+- **Transactions** are opened by the service through the repository port, as in DDH, which
+  delegates to `TransactionManager.run`. The open transaction travels down the call chain in
+  Node's `AsyncLocalStorage`, and repositories write through `TransactionManager.connection`,
+  which is that transaction or, outside one, the pool. A `run` inside a `run` joins the open
+  transaction. The work commits when it resolves and rolls back when it throws, so a service
+  that returns an error `Result` must make it roll back too.
+- **Kysely** is typed by the `Database` interface in `src/libs/db/database.ts`. A module adds
+  its tables there by hand, matching its migration. PostGIS functions go through Kysely's `sql`
+  template:
 
   ```ts
   db.selectFrom('phenomenon')
@@ -228,8 +249,17 @@ contract declares them.
     .execute();
   ```
 
-- **Migrations** live in `database/migrations/` and run through Kysely's migrator. Database
-  identifiers use the glossary's English names.
+- **Migrations** live in `database/migrations/` and run through Kysely's migrator, with
+  `bun run migrate` or once per test run. They are named `<UTC timestamp>_<what>.ts`, and
+  Kysely refuses one older than the last applied, so rename a branch's migration if a newer
+  one merged first. They stay TypeScript and Node loads them as they are, so they may only use
+  erasable syntax: no enums, namespaces or parameter properties. Write against
+  `Kysely<unknown>`, never the current `Database`, because a migration must keep meaning what
+  it meant when it was written. Database identifiers use the glossary's English names.
+- **PostGIS is enabled by a migration.** The `postgis/postgis` image installs it on its own,
+  so `compose.yaml` and the test setup hide the image's init scripts to start from the same
+  empty database a managed service gives. The image is amd64 only, and Docker emulates it
+  on Apple silicon.
 
 ## Errors
 
@@ -270,7 +300,8 @@ out-of-process consumer exists.
 
 - **Domain unit tests** exercise entities and value objects without booting NestJS.
 - **End-to-end specs** call the API over HTTP against a real PostGIS started with
-  Testcontainers, and are named by behavior. Response validation is on, so every response
+  Testcontainers, and are named by behavior. One container is migrated per run in
+  `tests/global-setup.ts`, and specs get its URL with `inject("databaseUrl")`. Response validation is on, so every response
   in this suite is also checked against the contract.
 - **Schemathesis** generates requests from the pinned OpenAPI document and runs them against
   the running API with `--checks all`.
@@ -315,6 +346,7 @@ Two things to get right:
 | `oxide.ts` (last release 2022) | `neverthrow` (last release 2025) | More recently maintained |
 | Aggregates publish their own events through `EventEmitter2` | Aggregates collect events, repositories publish them | Keeps the framework out of the domain |
 | `nestjs-request-context` | Node's `AsyncLocalStorage` | One dependency fewer on NestJS major versions |
+| Transaction stored on the request context | Its own `AsyncLocalStorage`, scoped to `run` | Works outside a request, and cannot leak into the next one |
 | CLI, message and GraphQL controllers | HTTP only | No such consumer exists, and the slice layout leaves room for one |
 | Route versioning such as `v2/users` | Expand/contract with semver | `docs/release.md` in the system repository |
 | Gherkin and `jest-cucumber` | End-to-end specs named by behavior | No non-developer reads the specs today |
@@ -322,8 +354,8 @@ Two things to get right:
 
 ## Open decisions
 
-> TODO: authentication. The contract declares Bearer auth, but the token issuer is not
-> decided. `validateSecurity` in the validator and the guards depend on this.
+> TODO: users and roles. Keycloak authenticates and the API checks tokens, but no user table
+> or role exists yet. They arrive with the domain, which decides what the roles are.
 
 > TODO: the module list. Blocked on `docs/domain.md` in the system repository.
 

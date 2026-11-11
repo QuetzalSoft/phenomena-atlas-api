@@ -1,8 +1,9 @@
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { loadAppConfig } from "../src/configs/app.config.js";
+import { testAuthEnv } from "./support/keycloak.js";
 
 const webOrigin = "http://localhost:3000";
 
@@ -11,7 +12,12 @@ describe("health", () => {
 
   beforeAll(async () => {
     app = await createApp(
-      loadAppConfig({ WEB_ORIGIN: webOrigin, VALIDATE_RESPONSES: "true" }),
+      loadAppConfig({
+        WEB_ORIGIN: webOrigin,
+        VALIDATE_RESPONSES: "true",
+        DATABASE_URL: inject("databaseUrl"),
+        ...testAuthEnv(),
+      }),
     );
     await app.init();
   });
@@ -24,6 +30,10 @@ describe("health", () => {
     const response = await request(app.getHttpServer()).get("/health").expect(200);
 
     expect(response.body).toEqual({ status: "ok" });
+  });
+
+  it("does not need an access token, even with a bad one", async () => {
+    await request(app.getHttpServer()).get("/health").set("Authorization", "Bearer not-a-token").expect(200);
   });
 
   it("lets the web client call it from the browser", async () => {
