@@ -1,0 +1,4 @@
+[install]
+# Each package sees exactly its own dependencies. The hoisted layout let ajv-draft-04
+# resolve ESLint's ajv 6 instead of its ajv 8 peer.
+linker = "isolated"

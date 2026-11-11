@@ -49,8 +49,23 @@ domain-driven-hexagon. Read it before adding a module or a use case. The conform
 validates real responses against the pinned OpenAPI document, as described there. Why this
 stack was chosen is in ADR 0006 in the system repository.
 
-> TODO: the test, lint and run commands. Fill this in with the first real commit. Keep it
-> to the commands a new contributor would otherwise have to find by reading config files.
+## Commands
+
+The contract package comes from GitHub Packages, so installing needs `GITHUB_TOKEN` set to
+a token with `read:packages` (`export GITHUB_TOKEN=$(gh auth token)` after
+`gh auth refresh -s read:packages`). Copy `.env.example` to `.env` for local settings.
+
+```sh
+bun install
+bun run dev          # watch mode on :8000
+bun run build && bun run start
+bun run typecheck
+bun run lint
+bun run test         # end-to-end specs, response validation on
+```
+
+Bun uses the isolated linker (`bunfig.toml`). The hoisted layout resolved
+`express-openapi-validator`'s `ajv-draft-04` against ESLint's `ajv` 6 and broke at startup.
 
 ## Conventions
 

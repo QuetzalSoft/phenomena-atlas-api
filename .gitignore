@@ -1,3 +1,7 @@
 .DS_Store
 
-# Stack-specific entries are added with the project scaffolding.
+node_modules/
+dist/
+coverage/
+.env
+*.tsbuildinfo
