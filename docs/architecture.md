@@ -6,7 +6,8 @@ ADR 0006 there.
 
 This document describes the target. Only part of it is built so far: the health slice, the
 contract edge, access token checks in `src/libs/auth/`, the persistence plumbing in
-`src/libs/db/`, and the `account` module with authorization. Events, the `ddd/` base classes
+`src/libs/db/`, the `account` module with authorization, and the `region` module with the
+versioned region partition and its loader. Events, the `ddd/` base classes
 and `dependency-cruiser` arrive when a module needs them.
 
 ## Sources and precedence

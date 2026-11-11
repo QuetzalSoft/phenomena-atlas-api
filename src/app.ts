@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import compression from "compression";
 import { NestFactory } from "@nestjs/core";
 import type { NestExpressApplication } from "@nestjs/platform-express";
 import express from "express";
@@ -18,7 +19,10 @@ export async function createApp(config: AppConfig): Promise<NestExpressApplicati
   const app = await NestFactory.create<NestExpressApplication>(AppModule.forRoot(config), { bodyParser: false });
   app.disable("x-powered-by");
   app.enableCors({ origin: config.webOrigins });
-  app.use(express.json());
+  // The region partition runs to several megabytes of GeoJSON, which compresses well.
+  app.use(compression());
+  // A save carries the full geometry of every region it changes, which can be large.
+  app.use(express.json({ limit: "25mb" }));
   app.use(
     OpenApiValidator.middleware({
       apiSpec: contractSpecPath,

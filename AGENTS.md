@@ -65,6 +65,7 @@ bun install
 docker compose up -d --wait            # PostGIS on :5432, Keycloak on :8080
 bun run build && bun run migrate       # apply pending migrations; `migrate down` reverts one
 bun run set-role 00000000-0000-4000-8000-000000000001 admin   # make the realm's `admin` user an admin
+bun run load-regions # load version 1 of the region partition; see below
 bun run dev          # watch mode on :8000
 bun run build && bun run start
 bun run typecheck
@@ -84,6 +85,11 @@ development only.
 operator sets a role outside the API: making the first admin of an environment, or
 recovering when every admin is lost. An email only finds someone who has signed in at
 least once; an identity provider id creates the account if needed.
+
+`bun run load-regions` builds version 1 of the region partition from INEGI and IMEPLAN data
+(ADR 0010 in the system repository) and refuses when a partition exists. It downloads the
+sources into `.cache/region-sources/` on first run and reuses them after; `--refresh`
+downloads them again. It takes a few seconds once the downloads are cached.
 
 Bun uses the isolated linker (`bunfig.toml`). The hoisted layout resolved
 `express-openapi-validator`'s `ajv-draft-04` against ESLint's `ajv` 6 and broke at startup.

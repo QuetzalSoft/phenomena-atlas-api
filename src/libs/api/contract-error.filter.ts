@@ -40,7 +40,7 @@ export class ContractErrorFilter implements ExceptionFilter {
     }
 
     if (exception instanceof ContractHttpException && exception.getStatus() < 500) {
-      this.send(response, exception.getStatus(), exception.message, undefined, exception.code);
+      this.send(response, exception.getStatus(), exception.message, exception.details, exception.code);
       return;
     }
 
