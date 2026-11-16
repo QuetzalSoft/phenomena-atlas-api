@@ -4,6 +4,7 @@ import type { AppConfig } from "./configs/app.config.js";
 import { DatabaseModule } from "./libs/db/database.module.js";
 import { AccountModule } from "./modules/account/account.module.js";
 import { HealthModule } from "./modules/health/health.module.js";
+import { PhenomenonModule } from "./modules/phenomenon/phenomenon.module.js";
 import { RegionModule } from "./modules/region/region.module.js";
 
 @Module({})
@@ -11,7 +12,7 @@ export class AppModule {
   static forRoot(config: AppConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [CqrsModule.forRoot(), DatabaseModule.forRoot({ url: config.databaseUrl }), HealthModule, AccountModule, RegionModule],
+      imports: [CqrsModule.forRoot(), DatabaseModule.forRoot({ url: config.databaseUrl }), HealthModule, AccountModule, RegionModule, PhenomenonModule],
     };
   }
 }

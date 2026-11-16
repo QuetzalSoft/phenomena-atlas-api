@@ -10,6 +10,7 @@ export interface Database {
   account: AccountTable;
   municipality: MunicipalityTable;
   partition_version: PartitionVersionTable;
+  phenomenon: PhenomenonTable;
   region: RegionTable;
   region_state: RegionStateTable;
 }
@@ -47,6 +48,20 @@ export interface RegionStateTable {
   name: string;
   population: number;
   geometry: GeometryColumn;
+}
+
+/** See database/migrations/20261115120000_create_phenomenon.ts. */
+export interface PhenomenonTable {
+  id: ColumnType<number, never, never>;
+  name: string;
+  description: string;
+  status: ColumnType<"draft" | "published" | "archived", "draft" | "published" | "archived" | undefined>;
+  /** JSON as the domain's Characteristic[] and WeightingExpression; the API checked it on the way in. */
+  characteristics: ColumnType<unknown, string, string>;
+  weighting_function: ColumnType<unknown, string, string>;
+  revision: ColumnType<number, number | undefined, number>;
+  created_at: ColumnType<Date, never, never>;
+  updated_at: ColumnType<Date, never, Date | string>;
 }
 
 /** See database/migrations/20261111190000_create_account.ts. */

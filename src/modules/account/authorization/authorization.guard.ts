@@ -5,7 +5,7 @@ import type { Principal } from "../../../libs/auth/access-token-verifier.js";
 import { ACCOUNT_REPOSITORY } from "../account.di-tokens.js";
 import type { AccountRepositoryPort } from "../database/account.repository.port.js";
 import type { Account } from "../domain/account.entity.js";
-import { isRole, roleSatisfies } from "../domain/role.js";
+import { isRole, type Role, roleSatisfies } from "../domain/role.js";
 
 /** The extension through which the contract states the minimum role of an operation. */
 export const minimumRoleExtension = "x-minimum-role";
@@ -70,6 +70,14 @@ export function callerOf(request: AuthorizedRequest): Account {
     throw new Error("The operation needs the caller's account, but the request has none.");
   }
   return request.account;
+}
+
+/**
+ * Whether the caller holds `minimum` or a role above it. For public operations whose answer
+ * depends on who asks, as the contract states for each; an anonymous caller holds no role.
+ */
+export function callerHas(request: AuthorizedRequest, minimum: Role): boolean {
+  return request.account !== undefined && roleSatisfies(request.account.role, minimum);
 }
 
 function isPublic(operation: ContractOperation): boolean {
