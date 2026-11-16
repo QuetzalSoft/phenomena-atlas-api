@@ -13,8 +13,8 @@ import { signInAs } from "./support/accounts.js";
 import { startTestApp } from "./support/app.js";
 
 // The partition is one shared state, so this is the only spec that touches it, and its tests
-// run in order: the initial load first, then saves that build on each other. erin is the
-// admin who saves, frank a plain user.
+// run in order: the initial load first, then saves that build on each other. judy is the
+// admin who saves, karl a plain user; both are used by this spec only.
 
 type MultiPolygon = Schemas["GeoJson.MultiPolygon"];
 type Region = Schemas["Region"];
@@ -97,7 +97,7 @@ describe("regions", () => {
 
   beforeAll(async () => {
     app = await startTestApp();
-    [admin, user] = [await signInAs("erin", "admin"), await signInAs("frank", "user")];
+    [admin, user] = [await signInAs("judy", "admin"), await signInAs("karl", "user")];
   });
 
   afterAll(async () => {
@@ -275,7 +275,7 @@ describe("regions", () => {
       expect(version).toEqual({
         number: 2,
         createdAt: expect.any(String) as string,
-        author: { id: expect.any(String) as string, username: "erin", name: "Erin Tester" },
+        author: { id: expect.any(String) as string, username: "judy", name: "Judy Tester" },
         added: [expect.any(Number) as number],
         changed: [beta.id],
         retired: [],
