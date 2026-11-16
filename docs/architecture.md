@@ -136,9 +136,9 @@ database/
 tests/
 ```
 
-`phenomenon` and its use cases are illustrations of the layout. The real modules and use
-cases come from `docs/domain.md` and the contract in the system repository, neither of
-which defines them yet.
+Modules and use cases come from `docs/domain.md` and the contract in the system
+repository. The tree above illustrates the layout; `src/modules/phenomenon/` is the real
+module to read for a complete example.
 
 `health` exists because the contract declares it. It is a query slice with no domain.
 
