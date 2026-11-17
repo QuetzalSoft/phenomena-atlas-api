@@ -12,13 +12,11 @@ import {
   RegionOverlapError,
 } from "../domain/region.errors.js";
 import { asGeoJson, grid } from "./geometry.sql.js";
+import { partitionLockKey } from "./partition-lock.js";
 import type { RegionRepositoryPort } from "./region.repository.port.js";
 
 /** Overlaps and gaps smaller than this, in square metres, are floating-point noise. */
 export const areaTolerance = 1;
-
-/** Any number: only needs to be the same for every save, so saves queue behind each other. */
-const partitionLockKey = 4_203_311;
 
 @Injectable()
 export class RegionRepository implements RegionRepositoryPort {

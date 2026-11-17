@@ -8,6 +8,7 @@ import { Pool } from "pg";
  */
 export interface Database {
   account: AccountTable;
+  incident_report: IncidentReportTable;
   municipality: MunicipalityTable;
   partition_version: PartitionVersionTable;
   phenomenon: PhenomenonTable;
@@ -62,6 +63,23 @@ export interface PhenomenonTable {
   revision: ColumnType<number, number | undefined, number>;
   created_at: ColumnType<Date, never, never>;
   updated_at: ColumnType<Date, never, Date | string>;
+}
+
+/** See database/migrations/20261116120000_create_incident_report.ts. */
+export interface IncidentReportTable {
+  id: ColumnType<number, never, never>;
+  phenomenon_id: number;
+  region_id: number;
+  author_account_id: string;
+  /**
+   * `pg` turns a date into a JavaScript Date at local midnight, which can shift the day. Read
+   * it as text with `occurred_on::text`, so the raw column is never selected.
+   */
+  occurred_on: ColumnType<never, string, never>;
+  description: string | null;
+  /** JSON as Record<string, number | boolean | string>; the API checked it on the way in. */
+  characteristic_values: ColumnType<unknown, string, never>;
+  created_at: ColumnType<Date, never, never>;
 }
 
 /** See database/migrations/20261111190000_create_account.ts. */

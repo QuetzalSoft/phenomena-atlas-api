@@ -7,6 +7,7 @@ import { DeletePhenomenonHttpController } from "./commands/delete-phenomenon/del
 import { DeletePhenomenonService } from "./commands/delete-phenomenon/delete-phenomenon.service.js";
 import { UpdatePhenomenonHttpController } from "./commands/update-phenomenon/update-phenomenon.http.controller.js";
 import { UpdatePhenomenonService } from "./commands/update-phenomenon/update-phenomenon.service.js";
+import { PhenomenonReader } from "./database/phenomenon.reader.js";
 import { PhenomenonRepository } from "./database/phenomenon.repository.js";
 import { PHENOMENON_REPOSITORY } from "./phenomenon.di-tokens.js";
 import { GetPhenomenonHttpController } from "./queries/get-phenomenon/get-phenomenon.http.controller.js";
@@ -31,6 +32,8 @@ import { ListPhenomenaQueryHandler } from "./queries/list-phenomena/list-phenome
     UpdatePhenomenonService,
     ChangePhenomenonStatusService,
     DeletePhenomenonService,
+    PhenomenonReader,
   ],
+  exports: [PhenomenonReader],
 })
 export class PhenomenonModule {}

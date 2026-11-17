@@ -2,8 +2,10 @@ import { readFile } from "node:fs/promises";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
 import type { TestProject } from "vitest/node";
+import { sql } from "kysely";
 import { createDatabase } from "../src/libs/db/database.js";
 import { createMigrator, throwIfFailed } from "../src/libs/db/migrator.js";
+import { templateDatabase } from "./support/database.js";
 import { otherAudienceClientId, realm, testClientId, testUsernames, testUserProfile } from "./support/keycloak.js";
 
 declare module "vitest" {
@@ -43,6 +45,8 @@ async function startDatabase() {
   const db = createDatabase(container.getConnectionUri());
   try {
     throwIfFailed(await createMigrator(db).migrateToLatest());
+    // Nobody connects to the template, so a spec can clone it at any time. See support/database.ts.
+    await sql`CREATE DATABASE ${sql.id(templateDatabase)} TEMPLATE ${sql.id(container.getDatabase())}`.execute(db);
   } finally {
     await db.destroy();
   }

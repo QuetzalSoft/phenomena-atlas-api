@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { SavePartitionVersionHttpController } from "./commands/save-partition-version/save-partition-version.http.controller.js";
 import { SavePartitionVersionService } from "./commands/save-partition-version/save-partition-version.service.js";
+import { RegionReader } from "./database/region.reader.js";
 import { RegionRepository } from "./database/region.repository.js";
 import { GetRegionPartitionHttpController } from "./queries/get-region-partition/get-region-partition.http.controller.js";
 import { GetRegionPartitionQueryHandler } from "./queries/get-region-partition/get-region-partition.query-handler.js";
@@ -27,6 +28,8 @@ import { REGION_REPOSITORY } from "./region.di-tokens.js";
     ListPartitionVersionsQueryHandler,
     GetPartitionVersionSummaryQueryHandler,
     SavePartitionVersionService,
+    RegionReader,
   ],
+  exports: [RegionReader],
 })
 export class RegionModule {}

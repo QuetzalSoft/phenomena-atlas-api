@@ -9,11 +9,14 @@ import { AccountRepository } from "../../src/modules/account/database/account.re
 import type { Role } from "../../src/modules/account/domain/role.js";
 import { issueAccessToken, type TestUsername } from "./keycloak.js";
 
-/** Signs in as a test user, gives them `role` the way an operator would, and returns their token. */
-export async function signInAs(username: TestUsername, role: Role): Promise<string> {
+/**
+ * Signs in as a test user, gives them `role` the way an operator would, and returns their
+ * token. The account lives in the database at `databaseUrl`, the shared one by default.
+ */
+export async function signInAs(username: TestUsername, role: Role, databaseUrl = inject("databaseUrl")): Promise<string> {
   const token = await issueAccessToken({ username });
   const subject = decodeJwt(token).sub as string;
-  const db = createDatabase(inject("databaseUrl"));
+  const db = createDatabase(databaseUrl);
   try {
     await setRoleByOperator(new AccountRepository(new TransactionManager(db)), { subject }, role);
   } finally {
