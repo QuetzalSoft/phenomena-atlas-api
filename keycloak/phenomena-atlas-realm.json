@@ -3,6 +3,9 @@
   "displayName": "Phenomena Atlas",
   "enabled": true,
   "loginWithEmailAllowed": true,
+  "registrationAllowed": true,
+  "resetPasswordAllowed": true,
+  "verifyEmail": false,
   "clients": [
     {
       "clientId": "phenomena-atlas-web",
