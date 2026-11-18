@@ -6,13 +6,13 @@ import { testAuthEnv } from "./keycloak.js";
 
 export const testWebOrigin = "http://localhost:3000";
 
-/** The application as main.ts builds it, against the test database and Keycloak, with responses validated. */
-export async function startTestApp(): Promise<NestExpressApplication> {
+/** The application as main.ts builds it, against a test database and Keycloak, with responses validated. */
+export async function startTestApp(databaseUrl = inject("databaseUrl")): Promise<NestExpressApplication> {
   const app = await createApp(
     loadAppConfig({
       WEB_ORIGIN: testWebOrigin,
       VALIDATE_RESPONSES: "true",
-      DATABASE_URL: inject("databaseUrl"),
+      DATABASE_URL: databaseUrl,
       ...testAuthEnv(),
     }),
   );

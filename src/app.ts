@@ -29,6 +29,9 @@ export async function createApp(config: AppConfig): Promise<NestExpressApplicati
       validateRequests: true,
       validateResponses: config.validateResponses,
       validateSecurity: { handlers: { BearerAuth: bearerAuth(new AccessTokenVerifier(config.auth)) } },
+      // The default, fast, only checks a format's shape: it lets a date such as 2026-02-30
+      // through, which PostgreSQL then refuses with a 500.
+      ajvFormats: { mode: "full" },
     }),
   );
   app.useGlobalFilters(new ContractErrorFilter());
