@@ -1,4 +1,5 @@
 import type { AccessTokenOptions } from "../libs/auth/access-token-verifier.js";
+import type { KeycloakAdminOptions } from "../libs/identity/keycloak-admin-options.js";
 
 export interface AppConfig {
   port: number;
@@ -10,6 +11,8 @@ export interface AppConfig {
   databaseUrl: string;
   /** Which access tokens to accept. Required, so a missing setting never weakens the check. */
   auth: AccessTokenOptions;
+  /** The service account that edits account details in Keycloak. Required, like the checks above. */
+  keycloakAdmin: KeycloakAdminOptions;
 }
 
 export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -25,6 +28,12 @@ export function loadAppConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       issuer: required(env, "AUTH_ISSUER"),
       audience: required(env, "AUTH_AUDIENCE"),
       jwksUrl: required(env, "AUTH_JWKS_URL"),
+    },
+    keycloakAdmin: {
+      tokenUrl: required(env, "KEYCLOAK_TOKEN_URL"),
+      adminUrl: required(env, "KEYCLOAK_ADMIN_URL"),
+      clientId: required(env, "KEYCLOAK_ADMIN_CLIENT_ID"),
+      clientSecret: required(env, "KEYCLOAK_ADMIN_CLIENT_SECRET"),
     },
   };
 }

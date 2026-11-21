@@ -13,7 +13,10 @@ describe("AccessTokenVerifier", () => {
       subject: decodeJwt(token).sub,
       username: "dev",
       name: "Dev User",
+      firstName: "Dev",
+      lastName: "User",
       email: "dev@phenomena-atlas.local",
+      issuedAt: new Date((decodeJwt(token).iat as number) * 1000),
     });
   });
 

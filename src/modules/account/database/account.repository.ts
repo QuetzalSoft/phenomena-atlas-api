@@ -32,6 +32,8 @@ export class AccountRepository implements AccountRepositoryPort {
     const profile = {
       username: principal.username ?? null,
       name: principal.name ?? null,
+      first_name: principal.firstName ?? null,
+      last_name: principal.lastName ?? null,
       email: principal.email ?? null,
     };
     const existing = await this.db
@@ -39,11 +41,20 @@ export class AccountRepository implements AccountRepositoryPort {
       .selectAll()
       .where("subject", "=", principal.subject)
       .executeTakeFirst();
+    // A token issued before the last edit still carries the old details. Refreshing from it
+    // would undo the edit, so the account keeps what it has until a newer token arrives.
+    const predatesEdit =
+      existing?.profile_updated_at != null &&
+      principal.issuedAt !== undefined &&
+      principal.issuedAt < existing.profile_updated_at;
     if (
       existing &&
-      existing.username === profile.username &&
-      existing.name === profile.name &&
-      existing.email === profile.email
+      (predatesEdit ||
+        (existing.username === profile.username &&
+          existing.name === profile.name &&
+          existing.first_name === profile.first_name &&
+          existing.last_name === profile.last_name &&
+          existing.email === profile.email))
     ) {
       return accountFromRow(existing);
     }
@@ -78,6 +89,21 @@ export class AccountRepository implements AccountRepositoryPort {
 
   async save(account: Account): Promise<void> {
     await this.db.updateTable("account").set({ role: account.role }).where("id", "=", account.id).execute();
+  }
+
+  async saveProfile(account: Account): Promise<void> {
+    const props = account.toProps();
+    await this.db
+      .updateTable("account")
+      .set({
+        name: props.name ?? null,
+        first_name: props.firstName ?? null,
+        last_name: props.lastName ?? null,
+        email: props.email ?? null,
+        profile_updated_at: props.profileUpdatedAt ?? null,
+      })
+      .where("id", "=", props.id)
+      .execute();
   }
 
   transaction<T>(work: () => Promise<T>): Promise<T> {
