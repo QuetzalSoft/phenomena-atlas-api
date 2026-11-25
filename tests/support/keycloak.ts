@@ -49,7 +49,7 @@ export function testAuthEnv(): Record<string, string> {
  * People who exist only in the test Keycloak, so each spec can sign in as someone no other
  * spec touches. Their password is their username.
  */
-export const testUsernames = ["alice", "bob", "carol", "dave", "erin", "frank", "grace", "heidi", "ivan", "judy", "karl", "lena", "mike", "nina", "oscar", "olga", "quinn"] as const;
+export const testUsernames = ["alice", "bob", "carol", "dave", "erin", "frank", "grace", "heidi", "ivan", "judy", "karl", "lena", "mike", "nina", "oscar", "olga", "quinn", "pete"] as const;
 export type TestUsername = (typeof testUsernames)[number];
 
 /** The profile Keycloak holds for a test user, and so the one their tokens carry. */

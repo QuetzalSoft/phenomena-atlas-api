@@ -34,11 +34,20 @@ export class KeycloakIdentityProvider implements IdentityProviderPort {
         return this.unavailable(`reading the user answered ${current.status}`, current.status);
       }
       const user = (await current.json()) as Record<string, unknown>;
+      // Keycloak keeps a verified email verified when it changes. Nobody has verified the new
+      // address, so tokens must stop claiming it. Keycloak compares emails in lower case.
+      const emailChanged = typeof user.email !== "string" || user.email.toLowerCase() !== edit.email.toLowerCase();
 
       const response = await fetch(userUrl, {
         method: "PUT",
         headers: { ...headers, "content-type": "application/json" },
-        body: JSON.stringify({ ...user, firstName: edit.firstName, lastName: edit.lastName, email: edit.email }),
+        body: JSON.stringify({
+          ...user,
+          firstName: edit.firstName,
+          lastName: edit.lastName,
+          email: edit.email,
+          ...(emailChanged && { emailVerified: false }),
+        }),
         signal: AbortSignal.timeout(requestTimeoutMs),
       });
       if (response.ok) {

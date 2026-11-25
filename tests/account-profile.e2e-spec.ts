@@ -9,7 +9,8 @@ import { issueAccessToken, type TestUsername, testUserProfile } from "./support/
 
 // Each person here is used by this spec only: lena edits her own details, mike is edited by
 // an admin, nina is refused, oscar keeps using a token issued before his edit, quinn is an
-// analyst whose edit hits a broken identity provider, and olga is the admin.
+// analyst whose edit hits a broken identity provider, pete changes only his names, and olga is
+// the admin.
 describe("editing account details", () => {
   let app: NestExpressApplication;
   const http = () => request(app.getHttpServer());
@@ -61,8 +62,20 @@ describe("editing account details", () => {
       expect(response.body).toMatchObject({ username: "lena", role: "user", ...expectedAccount(details) });
       expect(await myAccount(token)).toMatchObject(expectedAccount(details));
       expect(await keycloakClaims("lena")).toEqual(expectedAccount(details));
+      // Nobody has verified the new address yet.
+      expect(decodeJwt(await issueAccessToken({ username: "lena" })).email_verified).toBe(false);
       // Signing in again, with the details Keycloak now holds, shows the same account.
       expect(await myAccount(await issueAccessToken({ username: "lena" }))).toEqual(response.body);
+    });
+
+    it("keeps the email verified when only the names change", async () => {
+      const token = await signInAs("pete", "user");
+      const details = { ...newDetails("pete"), email: testUserProfile("pete").email.toUpperCase() };
+
+      await editOwn(token, details).expect(200);
+
+      const claims = decodeJwt(await issueAccessToken({ username: "pete" }));
+      expect(claims).toMatchObject({ given_name: details.firstName, email: testUserProfile("pete").email, email_verified: true });
     });
 
     it("keeps the details as Keycloak saved them, such as an email in lower case", async () => {
@@ -160,6 +173,7 @@ describe("editing account details", () => {
 
       expect(response.body).toMatchObject({ id: mike.id, username: "mike", role: "user", ...expectedAccount(details) });
       expect(await keycloakClaims("mike")).toEqual(expectedAccount(details));
+      expect(decodeJwt(await issueAccessToken({ username: "mike" })).email_verified).toBe(false);
       // Mike's token predates the edit, so it does not undo it either.
       expect(await myAccount(oldToken)).toMatchObject(expectedAccount(details));
       expect(await myAccount(await issueAccessToken({ username: "mike" }))).toMatchObject(expectedAccount(details));
