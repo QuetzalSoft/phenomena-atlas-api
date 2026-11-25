@@ -2,36 +2,21 @@ import { type Kysely, sql } from "kysely";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createDatabase, type Database } from "../src/libs/db/database.js";
 import { TransactionManager } from "../src/libs/db/transaction-manager.js";
+import { recomputeDueIndexes } from "../src/modules/phenomenon/commands/recompute-due-indexes/recompute-due-indexes.js";
 import { PhenomenonIndexCalculator, phenomenonIndexLockSpace } from "../src/modules/phenomenon/database/phenomenon-index.calculator.js";
-import type { Characteristic } from "../src/modules/phenomenon/domain/characteristic.js";
 import type { WeightingExpression } from "../src/modules/phenomenon/domain/weighting-expression.js";
 import { createIsolatedDatabase } from "./support/database.js";
-
-/** A square of about a kilometre, as a MultiPolygon in WKT. */
-const square = (west: number, south: number, width = 0.01) =>
-  `MULTIPOLYGON(((${west} ${south}, ${west + width} ${south}, ${west + width} ${south + 0.01}, ${west} ${south + 0.01}, ${west} ${south})))`;
-
-/**
- * Version 1 has Centro (1, population 100), Norte (2, 50, north of Centro), Vacío (3, 0, east
- * of Centro) and Oeste (4, 20, west of Centro). The partition rules are the region module's
- * business, so the rows are written directly.
- */
-async function seedPartition(db: Kysely<Database>): Promise<void> {
-  await sql`INSERT INTO municipality (code, name, geometry) VALUES ('14039', 'Guadalajara', ST_GeomFromText(${square(-103.42, 20.6, 0.04)}, 4326))`.execute(db);
-  await sql`INSERT INTO partition_version (number) VALUES (1)`.execute(db);
-  await sql`INSERT INTO region (municipality_code, created_in) VALUES ('14039', 1), ('14039', 1), ('14039', 1), ('14039', 1)`.execute(db);
-  await sql`
-    INSERT INTO region_state (region_id, valid_from, name, population, geometry) VALUES
-      (1, 1, 'Centro', 100, ST_GeomFromText(${square(-103.4, 20.6)}, 4326)),
-      (2, 1, 'Norte', 50, ST_GeomFromText(${square(-103.4, 20.61)}, 4326)),
-      (3, 1, 'Vacío', 0, ST_GeomFromText(${square(-103.39, 20.6)}, 4326)),
-      (4, 1, 'Oeste', 20, ST_GeomFromText(${square(-103.41, 20.6)}, 4326))
-  `.execute(db);
-}
-
-const victims: Characteristic = { type: "number", key: "victims", label: "Victims", required: true, retired: false, integer: true };
-const count: WeightingExpression = { kind: "aggregate", function: "count" };
-const of = (fn: "sum" | "mean", key: string): WeightingExpression => ({ kind: "aggregate", function: fn, characteristicKey: key });
+import {
+  computationOf as computationIn,
+  count,
+  createAuthor,
+  fileReports,
+  indexOf as indexIn,
+  insertPhenomenon,
+  of,
+  seedPartition,
+  square,
+} from "./support/phenomenon-index.js";
 
 describe("computing a phenomenon's index", () => {
   let db: Kysely<Database>;
@@ -48,7 +33,7 @@ describe("computing a phenomenon's index", () => {
     transactions = new TransactionManager(db);
     calculator = new PhenomenonIndexCalculator(transactions);
     await seedPartition(db);
-    ({ id: author } = await db.insertInto("account").values({ subject: "index-author" }).returning("id").executeTakeFirstOrThrow());
+    author = await createAuthor(db);
   });
 
   afterAll(async () => {
@@ -56,56 +41,11 @@ describe("computing a phenomenon's index", () => {
     await db.destroy();
   });
 
-  /** A phenomenon written directly, as the phenomenon module's rules are tested elsewhere. */
-  const phenomenon = async (
-    weightingFunction: WeightingExpression,
-    { status = "published", revision = 2 }: { status?: "draft" | "published" | "archived"; revision?: number } = {},
-  ): Promise<number> => {
-    const row = await db
-      .insertInto("phenomenon")
-      .values({
-        name: "Gender violence",
-        description: "",
-        status,
-        characteristics: JSON.stringify([victims]),
-        weighting_function: JSON.stringify(weightingFunction),
-        revision,
-        refresh_interval_minutes: 60,
-      })
-      .returning("id")
-      .executeTakeFirstOrThrow();
-    return row.id;
-  };
-
-  /** Files reports directly: one per entry, in that region, with those values. */
-  const file = async (phenomenonId: number, reports: [regionId: number, values: Record<string, unknown>][], into = db) => {
-    await into
-      .insertInto("incident_report")
-      .values(
-        reports.map(([regionId, values]) => ({
-          phenomenon_id: phenomenonId,
-          region_id: regionId,
-          author_account_id: author,
-          occurred_on: "2026-11-01",
-          characteristic_values: JSON.stringify(values),
-        })),
-      )
-      .execute();
-  };
-
-  /** The stored index, by region id. */
-  const indexOf = async (phenomenonId: number, from = db) => {
-    const rows = await from
-      .selectFrom("phenomenon_index")
-      .select(["region_id", "value"])
-      .where("phenomenon_id", "=", phenomenonId)
-      .orderBy("region_id")
-      .execute();
-    return Object.fromEntries(rows.map((row) => [row.region_id, row.value]));
-  };
-
-  const computationOf = (phenomenonId: number) =>
-    db.selectFrom("phenomenon_index_computation").selectAll().where("phenomenon_id", "=", phenomenonId).executeTakeFirst();
+  const phenomenon = (weightingFunction: WeightingExpression, options?: Parameters<typeof insertPhenomenon>[2]) =>
+    insertPhenomenon(db, weightingFunction, options);
+  const file = (phenomenonId: number, reports: Parameters<typeof fileReports>[3], into = db) => fileReports(into, author, phenomenonId, reports);
+  const indexOf = (phenomenonId: number, from = db) => indexIn(from, phenomenonId);
+  const computationOf = (phenomenonId: number) => computationIn(db, phenomenonId);
 
   it("gives every current region a row: count and sum are 0 where there are no reports, the mean is NULL", async () => {
     const counted = await phenomenon(count);
@@ -279,23 +219,31 @@ describe("computing a phenomenon's index before any partition exists", () => {
   });
 
   it("leaves a published phenomenon without a computation, so that it is due once a partition exists", async () => {
-    const { id } = await db
-      .insertInto("phenomenon")
-      .values({
-        name: "Gender violence",
-        description: "",
-        status: "published",
-        characteristics: JSON.stringify([]),
-        weighting_function: JSON.stringify(count),
-        revision: 2,
-        refresh_interval_minutes: 60,
-      })
-      .returning("id")
-      .executeTakeFirstOrThrow();
+    const id = await insertPhenomenon(db, count);
 
     expect(await new PhenomenonIndexCalculator(new TransactionManager(db)).recompute(id, { wait: true })).toBe("skipped");
 
     expect(await db.selectFrom("phenomenon_index_computation").selectAll().execute()).toEqual([]);
     expect(await db.selectFrom("phenomenon_index").selectAll().execute()).toEqual([]);
+  });
+
+  // Last: it loads the partition.
+  it("finds nothing due, and a tick does and logs nothing, until a partition is loaded", async () => {
+    const id = await insertPhenomenon(db, count);
+    const calculator = new PhenomenonIndexCalculator(new TransactionManager(db));
+    const logged: string[] = [];
+    const logger = { log: (message: string) => logged.push(message), error: (message: string) => logged.push(message) };
+
+    expect(await calculator.findDue()).toEqual([]);
+    expect(await recomputeDueIndexes(calculator, { logger })).toEqual({ computed: 0, skipped: 0, failed: 0 });
+    expect(logged).toEqual([]);
+
+    await seedPartition(db);
+
+    // This one and the one the test above left without a computation.
+    expect(await calculator.findDue()).toHaveLength(2);
+    expect(await calculator.findDue()).toContain(id);
+    expect(await recomputeDueIndexes(calculator, { logger })).toEqual({ computed: 2, skipped: 0, failed: 0 });
+    expect(await computationIn(db, id)).toBeDefined();
   });
 });

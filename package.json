@@ -13,6 +13,7 @@
     "migrate": "node --env-file-if-exists=.env dist/migrate.js",
     "set-role": "node --env-file-if-exists=.env dist/set-role.js",
     "load-regions": "node --env-file-if-exists=.env dist/load-regions.js",
+    "index:recompute-due": "node --env-file-if-exists=.env dist/recompute-due-indexes.js",
     "dev": "nest start --watch --env-file .env",
     "typecheck": "tsc --noEmit",
     "lint": "eslint --max-warnings 0 .",

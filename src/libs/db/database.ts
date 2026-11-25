@@ -121,8 +121,12 @@ export const DATABASE = Symbol("DATABASE");
 
 const logger = new Logger("Database");
 
-export function createDatabase(url: string): Kysely<Database> {
-  const pool = new Pool({ connectionString: url });
+/**
+ * A Kysely over a new pool. `maxConnections` caps the pool, which otherwise keeps pg's default;
+ * a Lambda function that handles one invocation at a time needs only one.
+ */
+export function createDatabase(url: string, { maxConnections }: { maxConnections?: number } = {}): Kysely<Database> {
+  const pool = new Pool({ connectionString: url, ...(maxConnections !== undefined && { max: maxConnections }) });
   // An idle client that loses its connection emits an error on the pool, and an unhandled
   // error event ends the process. The pool discards that client and opens a new one when needed.
   pool.on("error", (error) => {

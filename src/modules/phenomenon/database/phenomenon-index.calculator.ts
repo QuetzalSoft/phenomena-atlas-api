@@ -3,6 +3,7 @@ import { sql } from "kysely";
 import { TransactionManager } from "../../../libs/db/transaction-manager.js";
 import type { Characteristic } from "../domain/characteristic.js";
 import type { WeightingExpression } from "../domain/weighting-expression.js";
+import type { PhenomenonIndexCalculatorPort } from "./phenomenon-index.calculator.port.js";
 import { weightingSql } from "./weighting-expression.sql.js";
 
 /**
@@ -21,11 +22,40 @@ export const phenomenonIndexLockSpace = 4_203_312;
  * because ADR 0012 requires evaluating the weighting function in SQL.
  */
 @Injectable()
-export class PhenomenonIndexCalculator {
+export class PhenomenonIndexCalculator implements PhenomenonIndexCalculatorPort {
   constructor(private readonly transactions: TransactionManager) {}
 
   private get db() {
     return this.transactions.connection;
+  }
+
+  /**
+   * The published phenomena that are due: never computed, their refresh interval elapsed
+   * since the last computation started, their revision changed, or the partition changed.
+   * Never computed first, then the most overdue, then by id. Time is Postgres's.
+   *
+   * None while there is no partition: there is no map to compute, and recompute would skip
+   * every one of them. Those never computed are due at the first tick after one is loaded.
+   */
+  async findDue(): Promise<number[]> {
+    const { rows } = await sql<{ id: number }>`
+      SELECT phenomenon.id
+      FROM phenomenon
+      LEFT JOIN phenomenon_index_computation AS computation ON computation.phenomenon_id = phenomenon.id
+      WHERE phenomenon.status = 'published'
+        AND EXISTS (SELECT 1 FROM partition_version)
+        AND (
+          computation.phenomenon_id IS NULL
+          OR computation.computed_at + make_interval(mins => phenomenon.refresh_interval_minutes) <= now()
+          OR computation.phenomenon_revision <> phenomenon.revision
+          OR computation.partition_version <> (SELECT max(number) FROM partition_version)
+        )
+      ORDER BY
+        computation.phenomenon_id IS NULL DESC,
+        computation.computed_at + make_interval(mins => phenomenon.refresh_interval_minutes),
+        phenomenon.id
+    `.execute(this.db);
+    return rows.map((row) => row.id);
   }
 
   /**
