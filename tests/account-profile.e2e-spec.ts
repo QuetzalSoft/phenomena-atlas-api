@@ -65,6 +65,18 @@ describe("editing account details", () => {
       expect(await myAccount(await issueAccessToken({ username: "lena" }))).toEqual(response.body);
     });
 
+    it("keeps the details as Keycloak saved them, such as an email in lower case", async () => {
+      const token = await signInAs("lena", "user");
+      const details = { ...newDetails("lena"), email: "Lena.Mixed@Tests.Phenomena-Atlas.local" };
+
+      const response = await editOwn(token, details).expect(200);
+
+      const saved = expectedAccount({ ...details, email: "lena.mixed@tests.phenomena-atlas.local" });
+      expect(response.body).toMatchObject(saved);
+      expect(await myAccount(token)).toMatchObject(saved);
+      expect(await keycloakClaims("lena")).toEqual(saved);
+    });
+
     it("refuses values outside the limits of the request body, before anything is written", async () => {
       const token = await signInAs("nina", "user");
       const before = await myAccount(token);

@@ -13,6 +13,8 @@ export interface IdentityProviderPort {
   /**
    * Writes the person's first name, last name and email. It either changes all three or
    * none, and reports why it did not. `subject` is the identity provider's id for the person.
+   * Answers the details as the identity provider keeps them, which may differ from `edit`,
+   * such as an email in lower case.
    */
-  updateProfile(subject: string, edit: ProfileEdit): Promise<Result<void, UpdateProfileError>>;
+  updateProfile(subject: string, edit: ProfileEdit): Promise<Result<ProfileEdit, UpdateProfileError>>;
 }

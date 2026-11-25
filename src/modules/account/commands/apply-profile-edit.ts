@@ -20,7 +20,7 @@ export async function applyProfileEdit(
   if (written.isErr()) {
     return written.map(() => account);
   }
-  account.editProfile(edit, new Date());
+  account.editProfile(written.value, new Date());
   await accounts.saveProfile(account);
   return ok(account);
 }

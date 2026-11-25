@@ -21,7 +21,7 @@ export class KeycloakIdentityProvider implements IdentityProviderPort {
 
   constructor(@Inject(KEYCLOAK_ADMIN_OPTIONS) private readonly options: KeycloakAdminOptions) {}
 
-  async updateProfile(subject: string, edit: ProfileEdit): Promise<Result<void, UpdateProfileError>> {
+  async updateProfile(subject: string, edit: ProfileEdit): Promise<Result<ProfileEdit, UpdateProfileError>> {
     try {
       const token = await this.serviceToken();
       const userUrl = `${this.options.adminUrl}/users/${encodeURIComponent(subject)}`;
@@ -42,7 +42,7 @@ export class KeycloakIdentityProvider implements IdentityProviderPort {
         signal: AbortSignal.timeout(requestTimeoutMs),
       });
       if (response.ok) {
-        return ok(undefined);
+        return ok(await this.savedProfile(userUrl, headers, edit));
       }
       if (response.status === 409) {
         return err(new EmailAlreadyInUseError());
@@ -54,6 +54,25 @@ export class KeycloakIdentityProvider implements IdentityProviderPort {
     } catch (error) {
       this.logger.error(`Could not update an account in Keycloak: ${describe(error)}`);
       return err(new AccountUpdateUnavailableError({ cause: error }));
+    }
+  }
+
+  /**
+   * The details as Keycloak saved them, which may differ from what was sent: it keeps emails
+   * in lower case. The update already succeeded, so if they cannot be read back, the edit is
+   * kept as sent and the account catches up from the next token.
+   */
+  private async savedProfile(userUrl: string, headers: Record<string, string>, edit: ProfileEdit): Promise<ProfileEdit> {
+    try {
+      const response = await fetch(userUrl, { headers, signal: AbortSignal.timeout(requestTimeoutMs) });
+      if (!response.ok) {
+        throw new Error(`reading the user back answered ${response.status}`);
+      }
+      const saved = (await response.json()) as Partial<ProfileEdit>;
+      return { firstName: saved.firstName ?? edit.firstName, lastName: saved.lastName ?? edit.lastName, email: saved.email ?? edit.email };
+    } catch (error) {
+      this.logger.warn(`Updated an account in Keycloak but could not read it back: ${describe(error)}`);
+      return edit;
     }
   }
 
