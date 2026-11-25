@@ -86,6 +86,7 @@ export function phenomenonFromRow(row: PhenomenonRow): Phenomenon {
     // Only ever written from a checked domain definition.
     characteristics: row.characteristics as Characteristic[],
     weightingFunction: row.weighting_function as WeightingExpression,
+    refreshIntervalMinutes: row.refresh_interval_minutes,
     revision: row.revision,
   });
 }

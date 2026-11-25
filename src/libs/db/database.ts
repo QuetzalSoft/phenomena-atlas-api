@@ -51,7 +51,10 @@ export interface RegionStateTable {
   geometry: GeometryColumn;
 }
 
-/** See database/migrations/20261115120000_create_phenomenon.ts. */
+/**
+ * See database/migrations/20261115120000_create_phenomenon.ts and
+ * 20261124120000_add_phenomenon_refresh_interval.ts.
+ */
 export interface PhenomenonTable {
   id: ColumnType<number, never, never>;
   name: string;
@@ -61,6 +64,8 @@ export interface PhenomenonTable {
   characteristics: ColumnType<unknown, string, string>;
   weighting_function: ColumnType<unknown, string, string>;
   revision: ColumnType<number, number | undefined, number>;
+  /** No default in the database: a new phenomenon's 60 comes from the domain. */
+  refresh_interval_minutes: ColumnType<number, number, number | undefined>;
   created_at: ColumnType<Date, never, never>;
   updated_at: ColumnType<Date, never, Date | string>;
 }
