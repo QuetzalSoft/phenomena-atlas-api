@@ -12,6 +12,8 @@ export interface Database {
   municipality: MunicipalityTable;
   partition_version: PartitionVersionTable;
   phenomenon: PhenomenonTable;
+  phenomenon_index: PhenomenonIndexTable;
+  phenomenon_index_computation: PhenomenonIndexComputationTable;
   region: RegionTable;
   region_state: RegionStateTable;
 }
@@ -68,6 +70,22 @@ export interface PhenomenonTable {
   refresh_interval_minutes: ColumnType<number, number, number | undefined>;
   created_at: ColumnType<Date, never, never>;
   updated_at: ColumnType<Date, never, Date | string>;
+}
+
+/** See database/migrations/20261124130000_create_phenomenon_index.ts. */
+export interface PhenomenonIndexComputationTable {
+  phenomenon_id: number;
+  /** When the computation started. Written as now(), the start of its transaction. */
+  computed_at: ColumnType<Date, Date | string, Date | string>;
+  phenomenon_revision: number;
+  partition_version: number;
+}
+
+export interface PhenomenonIndexTable {
+  phenomenon_id: number;
+  region_id: number;
+  /** NULL when the region has no index, which is not the same as 0. */
+  value: number | null;
 }
 
 /** See database/migrations/20261116120000_create_incident_report.ts. */
