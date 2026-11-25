@@ -39,7 +39,8 @@ export class ContractErrorFilter implements ExceptionFilter {
       return;
     }
 
-    if (exception instanceof ContractHttpException && exception.getStatus() < 500) {
+    // A 503 is deliberate: the use case names it and its contract code. Any other 5xx is a bug.
+    if (exception instanceof ContractHttpException && (exception.getStatus() < 500 || exception.getStatus() === 503)) {
       this.send(response, exception.getStatus(), exception.message, exception.details, exception.code);
       return;
     }

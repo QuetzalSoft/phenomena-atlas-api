@@ -7,10 +7,22 @@ export interface AccountProps {
   /** The identity provider's id for the person. */
   subject: string;
   username?: string;
+  /** The first and last name together, as Keycloak builds the display name. */
   name?: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
   role: Role;
   createdAt: Date;
+  /** When the details were last edited through the API, absent if they never were. */
+  profileUpdatedAt?: Date;
+}
+
+/** What an owner or an admin can edit. */
+export interface ProfileEdit {
+  firstName: string;
+  lastName: string;
+  email: string;
 }
 
 /** A person known to the API, and the role that decides what they may do. */
@@ -23,6 +35,11 @@ export class Account {
 
   get id(): string {
     return this.props.id;
+  }
+
+  /** The identity provider's id for the person. */
+  get subject(): string {
+    return this.props.subject;
   }
 
   get role(): Role {
@@ -41,6 +58,15 @@ export class Account {
     }
     this.props.role = role;
     return ok(undefined);
+  }
+
+  /** The details are changed, once the identity provider has accepted them. */
+  editProfile(edit: ProfileEdit, at: Date): void {
+    this.props.firstName = edit.firstName;
+    this.props.lastName = edit.lastName;
+    this.props.name = `${edit.firstName} ${edit.lastName}`;
+    this.props.email = edit.email;
+    this.props.profileUpdatedAt = at;
   }
 
   /**

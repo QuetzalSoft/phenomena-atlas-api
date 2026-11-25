@@ -88,9 +88,13 @@ export interface AccountTable {
   subject: string;
   username: string | null;
   name: string | null;
+  first_name: string | null;
+  last_name: string | null;
   email: string | null;
   role: ColumnType<"user" | "analyst" | "admin", "user" | "analyst" | "admin" | undefined>;
   created_at: ColumnType<Date, never, never>;
+  /** When the details were last edited through the API. See 20261120190000_add_account_profile_edits.ts. */
+  profile_updated_at: ColumnType<Date | null, Date | null | undefined, Date | null>;
 }
 
 /** Injection token for the `Kysely<Database>` instance. */

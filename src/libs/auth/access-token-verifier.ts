@@ -16,7 +16,11 @@ export interface Principal {
   /** The profile the token carries, absent when the identity provider does not include it. */
   username?: string;
   name?: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
+  /** When the token was issued. It tells whether the profile it carries predates an edit. */
+  issuedAt?: Date;
 }
 
 /** The token is missing, malformed, expired, or not meant for this API. Answers 401. */
@@ -73,7 +77,10 @@ export class AccessTokenVerifier {
         subject: payload.sub as string,
         ...stringClaim("username", payload.preferred_username),
         ...stringClaim("name", payload.name),
+        ...stringClaim("firstName", payload.given_name),
+        ...stringClaim("lastName", payload.family_name),
         ...stringClaim("email", payload.email),
+        ...(typeof payload.iat === "number" && { issuedAt: new Date(payload.iat * 1000) }),
       };
     } catch (error) {
       if (tokenErrors.some((tokenError) => error instanceof tokenError)) {
