@@ -9,8 +9,8 @@ import { issueAccessToken, type TestUsername, testUserProfile } from "./support/
 
 // Each person here is used by this spec only: lena edits her own details, mike is edited by
 // an admin, nina is refused, oscar keeps using a token issued before his edit, quinn is an
-// analyst whose edit hits a broken identity provider, pete changes only his names, and olga is
-// the admin.
+// analyst whose edit hits a broken identity provider, pete changes only his names and has
+// them trimmed, and olga is the admin.
 describe("editing account details", () => {
   let app: NestExpressApplication;
   const http = () => request(app.getHttpServer());
@@ -104,6 +104,22 @@ describe("editing account details", () => {
         expect(response.body).toMatchObject({ code: "invalid_request" });
       }
       expect(await myAccount(token)).toEqual(before);
+    });
+
+    it("trims the names, and refuses one that is only spaces", async () => {
+      const token = await signInAs("pete", "user");
+      const { email } = testUserProfile("pete");
+
+      const trimmed = await editOwn(token, { firstName: "  Peter ", lastName: " Trimmed  ", email }).expect(200);
+      expect(trimmed.body).toMatchObject({ firstName: "Peter", lastName: "Trimmed", name: "Peter Trimmed" });
+      expect(await keycloakClaims("pete")).toMatchObject({ firstName: "Peter", lastName: "Trimmed" });
+
+      const blank = await editOwn(token, { firstName: "Peter", lastName: "   ", email }).expect(400);
+      expect(blank.body).toMatchObject({
+        code: "invalid_request",
+        details: { errors: [{ path: "/body/lastName", message: "must not be blank" }] },
+      });
+      expect(await myAccount(token)).toMatchObject({ lastName: "Trimmed" });
     });
 
     it("refuses an email another account has, and changes nothing", async () => {

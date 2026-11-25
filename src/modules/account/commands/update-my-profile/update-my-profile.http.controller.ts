@@ -3,6 +3,7 @@ import { CommandBus } from "@nestjs/cqrs";
 import type { Schemas } from "../../../../libs/api/contract.js";
 import { accountResponse } from "../../account.mapper.js";
 import { type AuthorizedRequest, callerOf } from "../../authorization/authorization.guard.js";
+import { profileEditOf } from "../profile-edit-of.js";
 import { profileHttpError } from "../profile-http-errors.js";
 import { UpdateMyProfileCommand } from "./update-my-profile.command.js";
 
@@ -15,7 +16,7 @@ export class UpdateMyProfileHttpController {
     @Body() body: Schemas["AccountProfile"],
     @Req() request: AuthorizedRequest,
   ): Promise<Schemas["Account"]> {
-    const result = await this.commandBus.execute(new UpdateMyProfileCommand(callerOf(request), body));
+    const result = await this.commandBus.execute(new UpdateMyProfileCommand(callerOf(request), profileEditOf(body)));
     return result.match(
       (account) => accountResponse(account.toProps()),
       (error) => {
