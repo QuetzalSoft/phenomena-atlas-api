@@ -35,9 +35,30 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "phenomena-atlas-account-admin",
+      "name": "Phenomena Atlas account editing",
+      "description": "Lets the API edit account details in Keycloak. It has no login of its own.",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "dev-only-account-admin-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true
     }
   ],
   "users": [
+    {
+      "username": "service-account-phenomena-atlas-account-admin",
+      "enabled": true,
+      "serviceAccountClientId": "phenomena-atlas-account-admin",
+      "clientRoles": {
+        "realm-management": ["view-users", "manage-users"]
+      }
+    },
     {
       "username": "dev",
       "email": "dev@phenomena-atlas.local",

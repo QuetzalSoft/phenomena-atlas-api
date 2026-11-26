@@ -41,6 +41,8 @@ describe("accounts", () => {
         id: expect.any(String) as string,
         username: "alice",
         name: "Alice Tester",
+        firstName: "Alice",
+        lastName: "Tester",
         email,
         role: "user",
         createdAt: expect.any(String) as string,

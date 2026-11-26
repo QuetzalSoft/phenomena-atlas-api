@@ -1,5 +1,6 @@
 import { inject } from "vitest";
 import type { AccessTokenOptions } from "../../src/libs/auth/access-token-verifier.js";
+import type { KeycloakAdminOptions } from "../../src/libs/identity/keycloak-admin-options.js";
 
 export const realm = "phenomena-atlas";
 
@@ -18,17 +19,37 @@ export function testAuthOptions(): AccessTokenOptions {
   };
 }
 
+/** The settings the API uses to edit accounts in the test Keycloak, as the development realm defines them. */
+export function testKeycloakAdminOptions(): KeycloakAdminOptions {
+  const { issuer } = testAuthOptions();
+  return {
+    tokenUrl: `${issuer}/protocol/openid-connect/token`,
+    adminUrl: `${inject("keycloakUrl")}/admin/realms/${realm}`,
+    clientId: "phenomena-atlas-account-admin",
+    clientSecret: "dev-only-account-admin-secret",
+  };
+}
+
 /** The same settings as environment variables, for `loadAppConfig`. */
 export function testAuthEnv(): Record<string, string> {
   const { issuer, audience, jwksUrl } = testAuthOptions();
-  return { AUTH_ISSUER: issuer, AUTH_AUDIENCE: audience, AUTH_JWKS_URL: jwksUrl };
+  const admin = testKeycloakAdminOptions();
+  return {
+    AUTH_ISSUER: issuer,
+    AUTH_AUDIENCE: audience,
+    AUTH_JWKS_URL: jwksUrl,
+    KEYCLOAK_TOKEN_URL: admin.tokenUrl,
+    KEYCLOAK_ADMIN_URL: admin.adminUrl,
+    KEYCLOAK_ADMIN_CLIENT_ID: admin.clientId,
+    KEYCLOAK_ADMIN_CLIENT_SECRET: admin.clientSecret,
+  };
 }
 
 /**
  * People who exist only in the test Keycloak, so each spec can sign in as someone no other
  * spec touches. Their password is their username.
  */
-export const testUsernames = ["alice", "bob", "carol", "dave", "erin", "frank", "grace", "heidi", "ivan", "judy", "karl"] as const;
+export const testUsernames = ["alice", "bob", "carol", "dave", "erin", "frank", "grace", "heidi", "ivan", "judy", "karl", "lena", "mike", "nina", "oscar", "olga", "quinn", "pete"] as const;
 export type TestUsername = (typeof testUsernames)[number];
 
 /** The profile Keycloak holds for a test user, and so the one their tokens carry. */

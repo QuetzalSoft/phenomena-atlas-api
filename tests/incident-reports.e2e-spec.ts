@@ -91,7 +91,7 @@ describe("incident reports", () => {
   beforeAll(async () => {
     databaseUrl = await createIsolatedDatabase("incident_reports");
     await seedPartition(databaseUrl);
-    app = await startTestApp(databaseUrl);
+    app = await startTestApp({ DATABASE_URL: databaseUrl });
     [admin, analyst, user, otherUser] = [
       await signInAs("alice", "admin", databaseUrl),
       await signInAs("bob", "analyst", databaseUrl),

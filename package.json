@@ -25,7 +25,7 @@
     "@nestjs/core": "12.4.2",
     "@nestjs/cqrs": "12.1.2",
     "@nestjs/platform-express": "12.4.2",
-    "@quetzalsoft/phenomena-atlas-contract": "0.1.0-dev.6",
+    "@quetzalsoft/phenomena-atlas-contract": "0.1.0-dev.7",
     "compression": "1.8.2",
     "express": "5.3.0",
     "express-openapi-validator": "5.6.2",

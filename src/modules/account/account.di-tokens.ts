@@ -1,1 +1,2 @@
 export const ACCOUNT_REPOSITORY = Symbol("ACCOUNT_REPOSITORY");
+export const IDENTITY_PROVIDER = Symbol("IDENTITY_PROVIDER");
