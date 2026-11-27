@@ -75,7 +75,7 @@ describe("phenomena", () => {
         .expect(200)
     ).body as Phenomenon;
 
-  const update = (phenomenon: Phenomenon, body: Definition, token = admin) =>
+  const update = (phenomenon: Phenomenon, body: Definition & { refreshIntervalMinutes?: number }, token = admin) =>
     http()
       .put(`/phenomena/${phenomenon.id}`)
       .auth(token, { type: "bearer" })
@@ -89,6 +89,10 @@ describe("phenomena", () => {
 
       const read = await http().get(`/phenomena/${created.id}`).auth(admin, { type: "bearer" }).expect(200);
       expect(read.body).toEqual(created);
+    });
+
+    it("starts with a refresh interval of 60 minutes", async () => {
+      expect(await create()).toMatchObject({ refreshIntervalMinutes: 60 });
     });
 
     it("keeps a half-built function in a draft", async () => {
@@ -152,7 +156,7 @@ describe("phenomena", () => {
         const visible = token
           ? http().get(`/phenomena/${published.id}`).auth(token, { type: "bearer" })
           : http().get(`/phenomena/${published.id}`);
-        expect((await visible.expect(200)).body).toMatchObject({ id: published.id, status: "published" });
+        expect((await visible.expect(200)).body).toMatchObject({ id: published.id, status: "published", refreshIntervalMinutes: 60 });
         const hidden = token
           ? http().get(`/phenomena/${draft.id}`).auth(token, { type: "bearer" })
           : http().get(`/phenomena/${draft.id}`);
@@ -180,6 +184,16 @@ describe("phenomena", () => {
       expect(names).toEqual([...names].sort());
     });
 
+    it("lists every phenomenon with its refresh interval", async () => {
+      const created = await create(definition({ name: "Listed with its interval" }));
+      await update(created, { ...definition({ name: "Listed with its interval" }), refreshIntervalMinutes: 15 }).expect(200);
+      const { items } = (await http().get("/phenomena").auth(admin, { type: "bearer" }).expect(200)).body as Schemas["PhenomenonList"];
+      expect(items.find((item) => item.id === created.id)).toMatchObject({ refreshIntervalMinutes: 15 });
+      for (const item of items) {
+        expect(item.refreshIntervalMinutes).toEqual(expect.any(Number));
+      }
+    });
+
     it("answers 404 for a phenomenon that does not exist", async () => {
       const response = await http().get("/phenomena/999999").auth(admin, { type: "bearer" }).expect(404);
       expect(response.body).toMatchObject({ code: "phenomenon_not_found" });
@@ -192,6 +206,37 @@ describe("phenomena", () => {
       const response = await update(created, definition({ name: "Renamed", characteristics: [...definition().characteristics, { type: "date", key: "occurred_on", label: "Date", required: false, retired: false }] })).expect(200);
       expect(response.body).toMatchObject({ name: "Renamed", revision: 2 });
       expect(Date.parse((response.body as Phenomenon).updatedAt)).toBeGreaterThanOrEqual(Date.parse(created.updatedAt));
+    });
+
+    it("saves a new refresh interval, increasing the revision", async () => {
+      const created = await create();
+      const response = await update(created, { ...definition(), refreshIntervalMinutes: 360 }).expect(200);
+      expect(response.body).toMatchObject({ refreshIntervalMinutes: 360, revision: 2 });
+
+      const read = await http().get(`/phenomena/${created.id}`).auth(admin, { type: "bearer" }).expect(200);
+      expect(read.body).toMatchObject({ refreshIntervalMinutes: 360, revision: 2 });
+    });
+
+    it("keeps the refresh interval when a change leaves it out", async () => {
+      const created = await create();
+      const changed = (await update(created, { ...definition(), refreshIntervalMinutes: 360 }).expect(200)).body as Phenomenon;
+
+      const response = await update(changed, definition({ name: "Renamed only" })).expect(200);
+      expect(response.body).toMatchObject({ name: "Renamed only", refreshIntervalMinutes: 360, revision: 3 });
+    });
+
+    it("refuses a refresh interval under 5 minutes or over 30 days, changing nothing", async () => {
+      const created = await create();
+      for (const refreshIntervalMinutes of [4, 43201]) {
+        const response = await update(created, { ...definition({ name: "Not saved" }), refreshIntervalMinutes }).expect(400);
+        expect(response.body).toMatchObject({
+          code: "invalid_request",
+          details: { errors: [expect.objectContaining({ path: "/body/refreshIntervalMinutes" })] },
+        });
+      }
+
+      const read = await http().get(`/phenomena/${created.id}`).auth(admin, { type: "bearer" }).expect(200);
+      expect(read.body).toEqual(created);
     });
 
     it("refuses a change made against an older revision", async () => {

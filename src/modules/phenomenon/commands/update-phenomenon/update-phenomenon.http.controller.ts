@@ -18,7 +18,10 @@ export class UpdatePhenomenonHttpController {
     @Param("phenomenonId", ParseIntPipe) id: number,
     @Body() body: Schemas["PhenomenonChange"],
   ): Promise<Schemas["Phenomenon"]> {
-    const result = await this.commandBus.execute(new UpdatePhenomenonCommand(id, body.baseRevision, definitionFromRequest(body)));
+    // Its range was checked against the contract. Omitted, it is undefined and the current one is kept.
+    const result = await this.commandBus.execute(
+      new UpdatePhenomenonCommand(id, body.baseRevision, definitionFromRequest(body), body.refreshIntervalMinutes),
+    );
     if (result.isErr()) {
       throw phenomenonHttpError(result.error);
     }

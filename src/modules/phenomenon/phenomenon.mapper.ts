@@ -102,6 +102,7 @@ export function phenomenonResponse(row: PhenomenonRow): Schemas["Phenomenon"] {
     description: row.description,
     characteristics: row.characteristics as Schemas["Characteristic"][],
     weightingFunction: row.weighting_function as Schemas["WeightingExpression"],
+    refreshIntervalMinutes: row.refresh_interval_minutes,
     status: row.status,
     revision: row.revision,
     createdAt: row.created_at.toISOString(),
