@@ -19,10 +19,23 @@ export interface PhenomenonDefinition {
   weightingFunction: WeightingExpression;
 }
 
+/** The refresh interval a new phenomenon starts with, in minutes. ADR 0015. */
+export const DEFAULT_REFRESH_INTERVAL_MINUTES = 60;
+
+/**
+ * A checked new phenomenon, ready to store. The refresh interval is not part of the
+ * definition an admin sends on creation, so it is always the default here.
+ */
+export interface NewPhenomenon extends PhenomenonDefinition {
+  refreshIntervalMinutes: number;
+}
+
 export interface PhenomenonProps extends PhenomenonDefinition {
   id: number;
   status: PhenomenonStatus;
   revision: number;
+  /** In whole minutes. Its range is checked by the contract and the database, not here. */
+  refreshIntervalMinutes: number;
 }
 
 /** The status changes allowed, by current status. Nothing goes back to draft. */
@@ -39,9 +52,15 @@ const transitions: Record<PhenomenonStatus, readonly PhenomenonStatus[]> = {
 export class Phenomenon {
   private constructor(private props: PhenomenonProps) {}
 
-  /** Checks a new phenomenon's definition. It starts as a draft, which may hold blanks. */
-  static checkNew(definition: PhenomenonDefinition): Result<PhenomenonDefinition, PhenomenonDefinitionError> {
-    return checkDefinition(definition, [], "draft").map(() => definition);
+  /**
+   * Checks a new phenomenon's definition. It starts as a draft, which may hold blanks, with
+   * the default refresh interval.
+   */
+  static checkNew(definition: PhenomenonDefinition): Result<NewPhenomenon, PhenomenonDefinitionError> {
+    return checkDefinition(definition, [], "draft").map(() => ({
+      ...definition,
+      refreshIntervalMinutes: DEFAULT_REFRESH_INTERVAL_MINUTES,
+    }));
   }
 
   static restore(props: PhenomenonProps): Phenomenon {
@@ -60,10 +79,15 @@ export class Phenomenon {
     return { ...this.props };
   }
 
-  /** Replaces the definition as a whole, if it was made against the latest revision. */
+  /**
+   * Replaces the definition as a whole, if it was made against the latest revision. The
+   * refresh interval is the exception: when none is given the current one is kept, so a
+   * client that does not know about it cannot reset it.
+   */
   redefine(
     definition: PhenomenonDefinition,
     baseRevision: number,
+    refreshIntervalMinutes?: number,
   ): Result<void, PhenomenonDefinitionError | PhenomenonRevisionConflictError> {
     if (baseRevision !== this.props.revision) {
       return err(new PhenomenonRevisionConflictError());
@@ -72,7 +96,12 @@ export class Phenomenon {
     if (checked.isErr()) {
       return err(checked.error);
     }
-    this.props = { ...this.props, ...definition, revision: this.props.revision + 1 };
+    this.props = {
+      ...this.props,
+      ...definition,
+      refreshIntervalMinutes: refreshIntervalMinutes ?? this.props.refreshIntervalMinutes,
+      revision: this.props.revision + 1,
+    };
     return ok(undefined);
   }
 

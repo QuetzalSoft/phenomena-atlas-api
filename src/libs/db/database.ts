@@ -12,6 +12,8 @@ export interface Database {
   municipality: MunicipalityTable;
   partition_version: PartitionVersionTable;
   phenomenon: PhenomenonTable;
+  phenomenon_index: PhenomenonIndexTable;
+  phenomenon_index_computation: PhenomenonIndexComputationTable;
   region: RegionTable;
   region_state: RegionStateTable;
 }
@@ -51,7 +53,10 @@ export interface RegionStateTable {
   geometry: GeometryColumn;
 }
 
-/** See database/migrations/20261115120000_create_phenomenon.ts. */
+/**
+ * See database/migrations/20261115120000_create_phenomenon.ts and
+ * 20261124120000_add_phenomenon_refresh_interval.ts.
+ */
 export interface PhenomenonTable {
   id: ColumnType<number, never, never>;
   name: string;
@@ -61,8 +66,26 @@ export interface PhenomenonTable {
   characteristics: ColumnType<unknown, string, string>;
   weighting_function: ColumnType<unknown, string, string>;
   revision: ColumnType<number, number | undefined, number>;
+  /** No default in the database: a new phenomenon's 60 comes from the domain. */
+  refresh_interval_minutes: ColumnType<number, number, number | undefined>;
   created_at: ColumnType<Date, never, never>;
   updated_at: ColumnType<Date, never, Date | string>;
+}
+
+/** See database/migrations/20261124130000_create_phenomenon_index.ts. */
+export interface PhenomenonIndexComputationTable {
+  phenomenon_id: number;
+  /** When the computation started. Written as now(), the start of its transaction. */
+  computed_at: ColumnType<Date, Date | string, Date | string>;
+  phenomenon_revision: number;
+  partition_version: number;
+}
+
+export interface PhenomenonIndexTable {
+  phenomenon_id: number;
+  region_id: number;
+  /** NULL when the region has no index, which is not the same as 0. */
+  value: number | null;
 }
 
 /** See database/migrations/20261116120000_create_incident_report.ts. */
@@ -102,8 +125,12 @@ export const DATABASE = Symbol("DATABASE");
 
 const logger = new Logger("Database");
 
-export function createDatabase(url: string): Kysely<Database> {
-  const pool = new Pool({ connectionString: url });
+/**
+ * A Kysely over a new pool. `maxConnections` caps the pool, which otherwise keeps pg's default;
+ * a Lambda function that handles one invocation at a time needs only one.
+ */
+export function createDatabase(url: string, { maxConnections }: { maxConnections?: number } = {}): Kysely<Database> {
+  const pool = new Pool({ connectionString: url, ...(maxConnections !== undefined && { max: maxConnections }) });
   // An idle client that loses its connection emits an error on the pool, and an unhandled
   // error event ends the process. The pool discards that client and opens a new one when needed.
   pool.on("error", (error) => {

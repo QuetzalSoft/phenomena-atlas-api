@@ -7,7 +7,10 @@ import type {
   PhenomenonRevisionConflictError,
 } from "../../domain/phenomenon.errors.js";
 
-/** Replaces a phenomenon's definition as a whole. */
+/**
+ * Replaces a phenomenon's definition as a whole. An omitted refresh interval keeps the
+ * current one.
+ */
 export class UpdatePhenomenonCommand extends Command<
   Result<void, PhenomenonDefinitionError | PhenomenonNotFoundError | PhenomenonRevisionConflictError>
 > {
@@ -15,6 +18,7 @@ export class UpdatePhenomenonCommand extends Command<
     readonly id: number,
     readonly baseRevision: number,
     readonly definition: PhenomenonDefinition,
+    readonly refreshIntervalMinutes?: number,
   ) {
     super();
   }

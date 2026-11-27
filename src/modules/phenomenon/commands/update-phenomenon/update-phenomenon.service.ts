@@ -18,6 +18,7 @@ export class UpdatePhenomenonService implements ICommandHandler<UpdatePhenomenon
     id,
     baseRevision,
     definition,
+    refreshIntervalMinutes,
   }: UpdatePhenomenonCommand): Promise<Result<void, PhenomenonDefinitionError | PhenomenonNotFoundError | PhenomenonRevisionConflictError>> {
     // Nothing is written before the checks pass, so a refusal needs no rollback.
     return this.phenomena.transaction(async () => {
@@ -25,7 +26,7 @@ export class UpdatePhenomenonService implements ICommandHandler<UpdatePhenomenon
       if (!phenomenon) {
         return err(new PhenomenonNotFoundError());
       }
-      const redefined = phenomenon.redefine(definition, baseRevision);
+      const redefined = phenomenon.redefine(definition, baseRevision, refreshIntervalMinutes);
       if (redefined.isErr()) {
         return err(redefined.error);
       }

@@ -7,7 +7,8 @@ ADR 0006 there.
 This document describes the target. Only part of it is built so far: the health slice, the
 contract edge, access token checks in `src/libs/auth/`, the persistence plumbing in
 `src/libs/db/`, the `account` module with authorization, the `region` module with the
-versioned region partition and its loader, the `phenomenon` module, and the
+versioned region partition and its loader, the `phenomenon` module with the phenomenon index
+and its recomputation, on publishing and on a tick, and the
 `incident-report` module, which reads phenomena and regions through their `*.public.ts`. Events, the `ddd/` base classes
 and `dependency-cruiser` arrive when a module needs them.
 
@@ -95,6 +96,11 @@ Code is grouped by use case, so that files that change together live together.
 ```
 src/
   main.ts
+  migrate.ts                scripts run without NestJS (see Application layer)
+  set-role.ts
+  load-regions.ts
+  recompute-due-indexes.ts  the index tick, run locally
+  recompute-due-indexes.handler.ts   the index tick, as a Lambda function
   app.module.ts
   configs/
   libs/
@@ -112,6 +118,9 @@ src/
           create-phenomenon.http.controller.ts
           create-phenomenon.command.ts
           create-phenomenon.service.ts
+        recompute-due-indexes/
+          recompute-due-indexes.ts         the index tick, a plain function
+          recompute-due-indexes.lambda.ts  createHandler, for the Lambda entry point
       queries/
         find-phenomena/
           find-phenomena.http.controller.ts
@@ -121,6 +130,9 @@ src/
       database/
         phenomenon.repository.port.ts
         phenomenon.repository.ts
+        phenomenon-index.calculator.port.ts
+        phenomenon-index.calculator.ts     computes and stores the index
+        weighting-expression.sql.ts        the weighting function as SQL
       domain/
         phenomenon.entity.ts
         phenomenon.errors.ts
@@ -148,6 +160,13 @@ module to read for a complete example.
 A module is named after a glossary term and acts as a bounded context. Modules stay
 independent: one module does not import another's internals. They communicate through
 domain events or through a facade the owning module publishes in a `*.public.ts` file.
+
+There is one exception, recorded in ADR 0016 in the system repository. The phenomenon index
+calculator in the `phenomenon` module reads the incident report tables and the region tables
+(`incident_report`, `region`, `region_state` and `partition_version`) directly in SQL,
+because ADR 0012 requires evaluating the weighting function in SQL. One `INSERT ... SELECT`
+reads the reports and the current regions, and `findDue` and each computation read the
+latest partition version. It only reads them, and never writes to them.
 
 Add a module for a real boundary in the domain, not for every table.
 
@@ -179,6 +198,26 @@ values, and only infrastructure knows about PostGIS column types.
   chain work, a command emits an event and a handler issues the next command.
 - Declare a port where a real seam exists, such as a repository or a third-party service.
   Depending on a concrete class is fine when nothing would ever replace it.
+- Work that runs outside a request is a plain function over ports, with no NestJS, so a
+  script in `src/` can build the pieces by hand and call it. `set-role-by-operator.ts` is one;
+  the index tick, `recompute-due-indexes.ts`, is another.
+
+**The index tick** (ADR 0017 in the system repository) asks the calculator which phenomena
+are due and computes them one at a time, most overdue first, each in its own transaction and
+without waiting for a lock: a phenomenon whose computation is under way elsewhere counts as
+skipped. A failure is logged with the phenomenon's id and the tick moves on; the phenomenon
+stays due. A tick logs a summary only when something was due, and finds nothing due while no
+partition exists, so an idle tick writes nothing. It has two entry points:
+
+- `src/recompute-due-indexes.ts`, for local runs: `bun run index:recompute-due` runs one tick,
+  `--every <seconds>` repeats until Ctrl+C or SIGTERM, which lets the tick under way finish
+  and then closes the database.
+- `src/recompute-due-indexes.handler.ts`, for Lambda. It creates the database when the module
+  loads, so that the connection outlives an invocation, with a pool of one connection, since
+  an instance handles one invocation at a time. Each invocation gets a deadline of the time
+  left minus `INDEX_TICK_MARGIN_SECONDS` (60 when unset): the tick starts nothing past it, and
+  what is left stays due for the next tick. The logic is `createHandler(db)` in
+  `recompute-due-indexes.lambda.ts`, so that tests can call it without `DATABASE_URL`.
 
 ## Interface layer: the contract at the edge
 
@@ -251,6 +290,11 @@ contract declares them.
   which is that transaction or, outside one, the pool. A `run` inside a `run` joins the open
   transaction. The work commits when it resolves and rolls back when it throws, so a service
   that returns an error `Result` must make it roll back too.
+- **Everything built by hand shares one `TransactionManager`.** NestJS injects a single one.
+  A script or a test that constructs a repository and the index calculator itself must give
+  both the same instance: with two, the calculator opens a transaction of its own, does not
+  see the caller's uncommitted changes, and publishing reads the phenomenon as a draft and
+  skips the computation.
 - **Kysely** is typed by the `Database` interface in `src/libs/db/database.ts`. A module adds
   its tables there by hand, matching its migration. PostGIS functions go through Kysely's `sql`
   template:
@@ -273,6 +317,28 @@ contract declares them.
   so `compose.yaml` and the test setup hide the image's init scripts to start from the same
   empty database a managed service gives. The image is amd64 only, and Docker emulates it
   on Apple silicon.
+- **The phenomenon index** is computed in infrastructure, because the domain imports no
+  Kysely. What is computed, and when, is ADR 0016 in the system repository; this is how.
+  - `weighting-expression.sql.ts` translates the weighting function node by node into fixed
+    SQL fragments. Numbers, characteristic keys, option keys and weights are always
+    parameters, never SQL text, and every value is cast to double precision, so that no
+    division is an integer division.
+  - `PhenomenonIndexCalculator.recompute` runs in the open transaction or one of its own. It
+    takes the phenomenon's transaction-level advisory lock,
+    `pg_advisory_xact_lock(phenomenonIndexLockSpace, id)`, or `pg_try_advisory_xact_lock` when
+    told not to wait. Postgres keeps two-integer keys apart from the one-integer keys, so this
+    lock never collides with the partition's `partitionLockKey`, whatever the ids.
+  - It does not lock the phenomenon's row. Publishing holds that row for update and then
+    waits for this lock, so a computation that took the row while holding the lock would
+    deadlock with it.
+  - It skips a phenomenon that is not published, or a database with no partition, and writes
+    nothing.
+  - It deletes the phenomenon's values, upserts its row in `phenomenon_index_computation` with
+    `computed_at = now()` (before the values, which reference it), and writes every current
+    region's value with one `INSERT ... SELECT`.
+  - It does not take the partition's lock. A partition saved between reading the latest
+    version and the `INSERT` leaves the computation recording the version before the one it
+    used, and the phenomenon is due again at the next tick.
 
 ## Errors
 
@@ -316,6 +382,13 @@ out-of-process consumer exists.
   Testcontainers, and are named by behavior. One container is migrated per run in
   `tests/global-setup.ts`, and specs get its URL with `inject("databaseUrl")`. Response validation is on, so every response
   in this suite is also checked against the contract.
+- **A spec that needs a partition of its own** gets an isolated database, a copy of the
+  migrated template, from `createIsolatedDatabase` in `tests/support/database.ts`, and seeds
+  it. The shared database has a partition only once `regions.e2e-spec.ts` has loaded it, and
+  spec files run in parallel, so what another spec finds there depends on timing. The index
+  specs (`phenomenon-index.e2e-spec.ts` and `index-recomputation.e2e-spec.ts`) work this way,
+  and `phenomena.e2e-spec.ts` asserts nothing about the index for the same reason: publishing
+  there computes over whatever partition the shared database holds at that moment, if any.
 - **Schemathesis** generates requests from the pinned OpenAPI document and runs them against
   the running API with `--checks all`.
 
@@ -360,7 +433,7 @@ Two things to get right:
 | Aggregates publish their own events through `EventEmitter2` | Aggregates collect events, repositories publish them | Keeps the framework out of the domain |
 | `nestjs-request-context` | Node's `AsyncLocalStorage` | One dependency fewer on NestJS major versions |
 | Transaction stored on the request context | Its own `AsyncLocalStorage`, scoped to `run` | Works outside a request, and cannot leak into the next one |
-| CLI, message and GraphQL controllers | HTTP only | No such consumer exists, and the slice layout leaves room for one |
+| CLI, message and GraphQL controllers | HTTP only | No such consumer exists, and the slice layout leaves room for one. The entry points that are not HTTP, the scripts (`migrate`, `set-role`, `load-regions`, `index:recompute-due`) and the Lambda handler, call plain functions, not controllers |
 | Route versioning such as `v2/users` | Expand/contract with semver | `docs/release.md` in the system repository |
 | Gherkin and `jest-cucumber` | End-to-end specs named by behavior | No non-developer reads the specs today |
 | NestJS 9 | Current NestJS | Follow the pattern, not the version pins |
@@ -370,3 +443,22 @@ Two things to get right:
 > TODO: the module list. Blocked on `docs/domain.md` in the system repository.
 
 > TODO: hosting and environments. Tracked in `docs/architecture.md` in the system repository.
+
+> TODO(hosting): the index tick's Lambda handler connects with `DATABASE_URL`, like the rest
+> of the API. ADR 0017 in the system repository has it connect to RDS with IAM
+> authentication instead, which waits for the AWS environment. The `TODO(hosting)` in
+> `src/recompute-due-indexes.handler.ts` marks the place.
+
+**What the index tick needs from the hosting work.** None of it exists yet. ADR 0017 in the
+system repository explains each setting and the cost traps to avoid.
+
+- An EventBridge Scheduler schedule, `rate(1 minute)`, with the flexible time window off and a
+  retry policy of 0 retries, invoking the function below.
+- An IAM role for the schedule, allowed `lambda:InvokeFunction` on that function.
+- A Lambda function running the `handler` export of `dist/recompute-due-indexes.handler.js`:
+  arm64, 512 MB, a 5-minute timeout, reserved concurrency 1, and asynchronous invocation with
+  a maximum event age of 60 seconds and 0 retries. It runs in the VPC, in subnets that reach
+  RDS, with `DATABASE_URL` set, and `INDEX_TICK_MARGIN_SECONDS` only to change the default.
+  How its package is built is part of the hosting work.
+- An execution role for the function, allowed to run in the VPC and to write CloudWatch Logs.
+- A security group for the function, which the RDS security group allows on port 5432.

@@ -33,8 +33,9 @@ const definition = (overrides: Partial<PhenomenonDefinition> = {}): PhenomenonDe
   ...overrides,
 });
 
+// Not the default, so that keeping it and resetting it to 60 cannot be confused.
 const saved = (status: PhenomenonStatus = "draft", overrides: Partial<PhenomenonDefinition> = {}) =>
-  Phenomenon.restore({ id: 1, status, revision: 3, ...definition(overrides) });
+  Phenomenon.restore({ id: 1, status, revision: 3, refreshIntervalMinutes: 120, ...definition(overrides) });
 
 const codeOf = (result: { isErr(): boolean; _unsafeUnwrapErr(): { code: string } }) => (result.isErr() ? result._unsafeUnwrapErr().code : "ok");
 const errorOf = <E>(result: { _unsafeUnwrapErr(): E }) => result._unsafeUnwrapErr();
@@ -42,6 +43,10 @@ const errorOf = <E>(result: { _unsafeUnwrapErr(): E }) => result._unsafeUnwrapEr
 describe("a new phenomenon", () => {
   it("accepts a complete definition", () => {
     expect(codeOf(Phenomenon.checkNew(definition()))).toBe("ok");
+  });
+
+  it("starts with a refresh interval of 60 minutes", () => {
+    expect(Phenomenon.checkNew(definition())._unsafeUnwrap()).toMatchObject({ refreshIntervalMinutes: 60 });
   });
 
   it("may start with no characteristics and a blank function", () => {
@@ -121,6 +126,24 @@ describe("redefining a phenomenon", () => {
 
   it("refuses a change made against an older revision", () => {
     expect(codeOf(saved().redefine(definition(), 2))).toBe("phenomenon_revision_conflict");
+  });
+
+  it("keeps the refresh interval when none is given", () => {
+    const phenomenon = saved();
+    expect(codeOf(phenomenon.redefine(definition(), 3))).toBe("ok");
+    expect(phenomenon.toProps()).toMatchObject({ refreshIntervalMinutes: 120, revision: 4 });
+  });
+
+  it("changes the refresh interval when one is given, increasing the revision once", () => {
+    const phenomenon = saved();
+    expect(codeOf(phenomenon.redefine(definition(), 3, 15))).toBe("ok");
+    expect(phenomenon.toProps()).toMatchObject({ refreshIntervalMinutes: 15, revision: 4 });
+  });
+
+  it("refuses a new refresh interval made against an older revision, keeping the current one", () => {
+    const phenomenon = saved();
+    expect(codeOf(phenomenon.redefine(definition(), 2, 15))).toBe("phenomenon_revision_conflict");
+    expect(phenomenon.toProps()).toMatchObject({ refreshIntervalMinutes: 120, revision: 3 });
   });
 
   it("refuses to remove a saved characteristic", () => {

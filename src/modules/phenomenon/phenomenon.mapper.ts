@@ -86,6 +86,7 @@ export function phenomenonFromRow(row: PhenomenonRow): Phenomenon {
     // Only ever written from a checked domain definition.
     characteristics: row.characteristics as Characteristic[],
     weightingFunction: row.weighting_function as WeightingExpression,
+    refreshIntervalMinutes: row.refresh_interval_minutes,
     revision: row.revision,
   });
 }
@@ -101,6 +102,7 @@ export function phenomenonResponse(row: PhenomenonRow): Schemas["Phenomenon"] {
     description: row.description,
     characteristics: row.characteristics as Schemas["Characteristic"][],
     weightingFunction: row.weighting_function as Schemas["WeightingExpression"],
+    refreshIntervalMinutes: row.refresh_interval_minutes,
     status: row.status,
     revision: row.revision,
     createdAt: row.created_at.toISOString(),

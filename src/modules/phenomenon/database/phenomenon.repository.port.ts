@@ -1,8 +1,8 @@
-import type { Phenomenon, PhenomenonDefinition } from "../domain/phenomenon.entity.js";
+import type { NewPhenomenon, Phenomenon } from "../domain/phenomenon.entity.js";
 
 export interface PhenomenonRepositoryPort {
   /** Stores a new draft at revision 1 and returns its id. */
-  insert(definition: PhenomenonDefinition): Promise<number>;
+  insert(phenomenon: NewPhenomenon): Promise<number>;
 
   /**
    * The phenomenon with that id, kept to this transaction until it ends so no other change
@@ -10,7 +10,7 @@ export interface PhenomenonRepositoryPort {
    */
   findForUpdate(id: number): Promise<Phenomenon | undefined>;
 
-  /** Writes the phenomenon's current definition, status and revision. */
+  /** Writes the phenomenon's current definition, refresh interval, status and revision. */
   save(phenomenon: Phenomenon): Promise<void>;
 
   delete(id: number): Promise<void>;

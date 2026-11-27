@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { sql } from "kysely";
 import { TransactionManager } from "../../../libs/db/transaction-manager.js";
-import type { Phenomenon, PhenomenonDefinition } from "../domain/phenomenon.entity.js";
+import type { NewPhenomenon, Phenomenon } from "../domain/phenomenon.entity.js";
 import { phenomenonFromRow } from "../phenomenon.mapper.js";
 import type { PhenomenonRepositoryPort } from "./phenomenon.repository.port.js";
 
@@ -13,14 +13,15 @@ export class PhenomenonRepository implements PhenomenonRepositoryPort {
     return this.transactions.connection;
   }
 
-  async insert(definition: PhenomenonDefinition): Promise<number> {
+  async insert(phenomenon: NewPhenomenon): Promise<number> {
     const row = await this.db
       .insertInto("phenomenon")
       .values({
-        name: definition.name,
-        description: definition.description,
-        characteristics: JSON.stringify(definition.characteristics),
-        weighting_function: JSON.stringify(definition.weightingFunction),
+        name: phenomenon.name,
+        description: phenomenon.description,
+        characteristics: JSON.stringify(phenomenon.characteristics),
+        weighting_function: JSON.stringify(phenomenon.weightingFunction),
+        refresh_interval_minutes: phenomenon.refreshIntervalMinutes,
       })
       .returning("id")
       .executeTakeFirstOrThrow();
@@ -42,6 +43,7 @@ export class PhenomenonRepository implements PhenomenonRepositoryPort {
         status: props.status,
         characteristics: JSON.stringify(props.characteristics),
         weighting_function: JSON.stringify(props.weightingFunction),
+        refresh_interval_minutes: props.refreshIntervalMinutes,
         revision: props.revision,
         updated_at: sql`now()`,
       })

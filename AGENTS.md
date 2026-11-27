@@ -66,6 +66,7 @@ docker compose up -d --wait            # PostGIS on :5432, Keycloak on :8080
 bun run build && bun run migrate       # apply pending migrations; `migrate down` reverts one
 bun run set-role 00000000-0000-4000-8000-000000000001 admin   # make the realm's `admin` user an admin
 bun run load-regions # load version 1 of the region partition; see below
+bun run index:recompute-due   # compute every index that is due once; --every 60 repeats
 bun run dev          # watch mode on :8000
 bun run build && bun run start
 bun run typecheck
@@ -90,6 +91,11 @@ least once; an identity provider id creates the account if needed.
 (ADR 0010 in the system repository) and refuses when a partition exists. It downloads the
 sources into `.cache/region-sources/` on first run and reuses them after; `--refresh`
 downloads them again. It takes a few seconds once the downloads are cached.
+
+`bun run index:recompute-due` runs one tick of the phenomenon index: it computes every
+published phenomenon whose index is due, then exits, and does nothing while no partition is
+loaded. On AWS the same tick runs once a minute in a Lambda function (ADR 0017 in the system
+repository); `--every 60` does the same locally until Ctrl+C.
 
 Bun uses the isolated linker (`bunfig.toml`). The hoisted layout resolved
 `express-openapi-validator`'s `ajv-draft-04` against ESLint's `ajv` 6 and broke at startup.
